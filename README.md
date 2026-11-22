@@ -37,11 +37,11 @@ ham create my-agent
 This will:
 
 1. Ensure `ham/hermes-agent:latest` exists (build it from the packaged Dockerfile if missing; Docker pulls `nousresearch/hermes-agent:latest` as the base)
-2. Create `~/.ham/my-agent` and mount it at `/opt/data`
+2. Create Docker volume `ham-my-agent` (named volume — required so `gateway.sock` can be mode `0600` on Docker Desktop) and marker dir `~/.ham/my-agent`
 3. Start detached container `HA-my-agent` with hostname `my-agent.localhost`, `gateway run`, and `--restart unless-stopped`
 4. Create Hermes profile `my-agent` as user `hermes` inside the container at `/opt/data`. A Hermes install on the host is not used. The container gateway serves that profile.
 
-Host ports are not published, and the dashboard stays off. API keys are not prompted. Add them later in `~/.ham/my-agent/.env`. The image reads that file from `/opt/data/.env`.
+Host ports are not published, and the dashboard stays off. API keys are not prompted. Add them later with `ham shell my-agent` and edit `/opt/data/.env` (data lives in the volume, not a host bind mount).
 
 Rebuild the workstation image after package updates:
 
@@ -55,7 +55,8 @@ ham build-image
 |----------------|--------------------------------------------|
 | Container name | `HA-<agent-name>`                          |
 | Profile name   | CLI argument (`<agent-name>`)              |
-| Data directory | `~/.ham/<agent-name>`                      |
+| Data volume    | `ham-<agent-name>`                         |
+| Marker dir     | `~/.ham/<agent-name>`                      |
 | Image          | `ham/hermes-agent:latest` (FROM official)  |
 | Command        | `gateway run`                              |
 | Restart        | `unless-stopped`                           |

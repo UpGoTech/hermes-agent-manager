@@ -13,3 +13,4 @@ Specs: [001](specs/001-install-agent.md), [002](specs/002-agent-commands.md), [0
 | Host gateway serves the named profile; show install steps | Done |
 | Commands: create, list, info, start, stop, restart, shell, delete, backup, restore | Done |
 | Workstation image (`ham/hermes-agent`, build on create, `build-image`) | Done (beta) |
+| Named volume for `/opt/data` (Docker Desktop socket permissions) | Done (beta) |

@@ -1,4 +1,8 @@
+import re
 import subprocess
+from pathlib import Path
+
+from hermes_agent_manager.docker_runner import ARCHIVE_IMAGE
 
 
 class FakeCommands:
@@ -6,6 +10,7 @@ class FakeCommands:
         self.arguments: list[list[str]] = []
         self.existing: set[str] = set()
         self.images: set[str] = set()
+        self.volumes: set[str] = set()
         self.status = "running"
         self.failures: dict[str, str] = {}
 
@@ -17,6 +22,15 @@ class FakeCommands:
         if arguments[:3] == ["docker", "image", "inspect"]:
             code = 0 if arguments[3] in self.images else 1
             return self._completed(arguments, code, "")
+        if arguments[:3] == ["docker", "volume", "inspect"]:
+            code = 0 if arguments[3] in self.volumes else 1
+            return self._completed(arguments, code, "")
+        if arguments[:3] == ["docker", "volume", "create"]:
+            self.volumes.add(arguments[3])
+            return self._completed(arguments, 0, "")
+        if arguments[:3] == ["docker", "volume", "rm"]:
+            self.volumes.discard(arguments[3])
+            return self._completed(arguments, 0, "")
         if arguments[:2] == ["docker", "build"]:
             if self._failed(arguments):
                 return self._completed(arguments, 1, self.failures["build"])
@@ -35,7 +49,20 @@ class FakeCommands:
                 text = "ham/hermes-agent:latest\n"
                 return self._completed(arguments, 0, text, stderr="")
             return self._completed(arguments, 0, f"{self.status}\n", stderr="")
+        if ARCHIVE_IMAGE in arguments:
+            self._stage_archive_transfer(arguments)
+            return self._completed(arguments, 0, "")
         return self._completed(arguments, 0, "")
+
+    def _stage_archive_transfer(self, arguments: list[str]) -> None:
+        mounts = _volume_mounts(arguments)
+        script = arguments[-1]
+        match = re.search(r"/to/([A-Za-z0-9_.-]+)", script)
+        if match and "/from" in mounts and "/to" in mounts:
+            destination = Path(mounts["/to"]) / match.group(1)
+            destination.mkdir(parents=True, exist_ok=True)
+            (destination / "note.txt").write_text("hello")
+
 
     def _failed(self, arguments: list[str]) -> bool:
         return len(arguments) > 1 and arguments[1] in self.failures
@@ -49,3 +76,17 @@ class FakeCommands:
     ) -> subprocess.CompletedProcess[str]:
         error = "" if stderr is not None else stdout
         return subprocess.CompletedProcess(arguments, code, stdout, stderr or error)
+
+
+def _volume_mounts(arguments: list[str]) -> dict[str, str]:
+    mounts: dict[str, str] = {}
+    index = 0
+    while index < len(arguments):
+        if arguments[index] == "-v" and index + 1 < len(arguments):
+            host, _, remainder = arguments[index + 1].partition(":")
+            target = remainder.split(":", 1)[0]
+            mounts[target] = host
+            index += 2
+            continue
+        index += 1
+    return mounts

@@ -14,14 +14,15 @@ ham create my-agent
 2. Derive two names from the argument. For `ham create my-agent`, the container is `HA-my-agent` and the Hermes profile is `my-agent`. The data directory stays keyed by the profile name.
 3. Fail if `docker` is missing, if container `HA-<agent-name>` already exists, or if the data directory already exists.
 4. Ensure workstation image `ham/hermes-agent:latest` (build from packaged Dockerfile if missing; base is `nousresearch/hermes-agent:latest`). See [003-workstation-image.md](003-workstation-image.md).
-5. Create `~/.ham/<agent-name>` and run a detached gateway. This matches the official [one container per profile](https://hermes-agent.nousresearch.com/docs/user-guide/docker) layout (distinct container name and volume; never share `~/.hermes` across containers):
+5. Create named volume `ham-<agent-name>` (not a host bind — see [004-named-volume.md](004-named-volume.md)), marker `~/.ham/<agent-name>`, and run a detached gateway. Distinct container + volume; never share one data volume across containers:
 
 ```bash
+docker volume create ham-<agent-name>
 docker run -d \
   --name HA-<agent-name> \
   --hostname <agent-name>.localhost \
   --restart unless-stopped \
-  -v ~/.ham/<agent-name>:/opt/data \
+  -v ham-<agent-name>:/opt/data \
   -e HERMES_UID=<current uid> \
   -e HERMES_GID=<current gid> \
   -e HERMES_HOME=/opt/data \

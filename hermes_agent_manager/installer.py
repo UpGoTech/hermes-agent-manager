@@ -30,39 +30,50 @@ class AgentInstaller:
     def _ensure_ready(self, agent: AgentName) -> None:
         self._docker.ensure_available()
         self._ensure_container_absent(agent)
-        self._ensure_data_absent(agent)
+        self._ensure_volume_absent(agent)
+        self._ensure_marker_absent(agent)
 
     def _ensure_container_absent(self, agent: AgentName) -> None:
         if not self._docker.container_exists(agent.container_name):
             return
         raise InstallError(f"Container {agent.container_name} already exists.")
 
-    def _ensure_data_absent(self, agent: AgentName) -> None:
-        path = self._data_directory(agent)
+    def _ensure_volume_absent(self, agent: AgentName) -> None:
+        if not self._docker.volume_exists(agent.volume_name):
+            return
+        raise InstallError(f"Volume {agent.volume_name} already exists.")
+
+    def _ensure_marker_absent(self, agent: AgentName) -> None:
+        path = self._marker_directory(agent)
         if not path.exists():
             return
         raise InstallError(f"Data directory {path} already exists.")
 
     def _start(self, agent: AgentName) -> None:
         self._progress.run(f"Ensuring image {IMAGE}", lambda: self._docker.ensure_image(IMAGE))
-        directory = self._progress.run(
-            f"Creating {self._data_directory(agent)}",
-            lambda: self._prepare_directory(agent),
+        self._progress.run(
+            f"Creating volume {agent.volume_name}",
+            lambda: self._docker.ensure_volume(agent.volume_name),
         )
-        self._launch(agent, directory)
+        self._progress.run(
+            f"Creating {self._marker_directory(agent)}",
+            lambda: self._prepare_marker(agent),
+        )
+        self._launch(agent)
 
-    def _prepare_directory(self, agent: AgentName) -> Path:
-        path = self._data_directory(agent)
+    def _prepare_marker(self, agent: AgentName) -> Path:
+        path = self._marker_directory(agent)
         path.mkdir(parents=True)
+        (path / ".volume").write_text(f"{agent.volume_name}\n")
         return path
 
-    def _data_directory(self, agent: AgentName) -> Path:
+    def _marker_directory(self, agent: AgentName) -> Path:
         return self._data_root / agent.profile_name
 
-    def _launch(self, agent: AgentName, directory: Path) -> None:
+    def _launch(self, agent: AgentName) -> None:
         self._progress.run(
             f"Starting container {agent.container_name}",
-            lambda: self._start_container(agent, directory),
+            lambda: self._start_container(agent),
         )
         self._progress.run(
             f"Waiting for {agent.container_name}",
@@ -70,10 +81,10 @@ class AgentInstaller:
         )
         self._open_profile(agent)
 
-    def _start_container(self, agent: AgentName, directory: Path) -> None:
+    def _start_container(self, agent: AgentName) -> None:
         self._docker.run_gateway(
             agent.container_name,
-            str(directory),
+            agent.volume_name,
             self._user_id,
             self._group_id,
             IMAGE,

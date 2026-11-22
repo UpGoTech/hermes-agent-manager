@@ -60,15 +60,17 @@ def test_shell_runs_inside_the_container(tmp_path: Path) -> None:
     ]]
 
 
-def test_delete_removes_container_and_data(tmp_path: Path) -> None:
+def test_delete_removes_container_volume_and_marker(tmp_path: Path) -> None:
     directory = tmp_path / "my-agent"
     directory.mkdir()
     commands = FakeCommands()
     commands.existing.add("HA-my-agent")
+    commands.volumes.add("ham-my-agent")
 
     _control(commands, tmp_path).delete("my-agent")
 
     assert ["docker", "rm", "-f", "HA-my-agent"] in commands.arguments
+    assert ["docker", "volume", "rm", "ham-my-agent"] in commands.arguments
     assert not directory.exists()
 
 
@@ -77,31 +79,36 @@ def test_delete_rejects_an_unknown_agent(tmp_path: Path) -> None:
         _control(FakeCommands(), tmp_path).delete("my-agent")
 
 
-def test_backup_and_restore_round_trip(tmp_path: Path) -> None:
-    directory = tmp_path / "my-agent"
-    directory.mkdir()
-    (directory / "note.txt").write_text("hello")
-    commands = FakeCommands()
-    commands.status = "exited"
-    control = _control(commands, tmp_path)
-
-    archive = control.backup("my-agent", None)
-    directory.joinpath("note.txt").write_text("changed")
-    control.restore("my-agent", archive)
-
-    assert (directory / "note.txt").read_text() == "hello"
-    assert ["docker", "stop", "HA-my-agent"] not in commands.arguments
-
-
-def test_backup_restarts_a_running_container(tmp_path: Path) -> None:
+def test_backup_exports_volume_and_restarts_running_container(tmp_path: Path) -> None:
     (tmp_path / "my-agent").mkdir()
     commands = FakeCommands()
     commands.status = "running"
+    commands.volumes.add("ham-my-agent")
 
-    _control(commands, tmp_path).backup("my-agent", None)
+    archive = _control(commands, tmp_path).backup("my-agent", None)
 
+    assert archive.name == "my-agent.tar.gz"
     assert ["docker", "stop", "HA-my-agent"] in commands.arguments
     assert ["docker", "start", "HA-my-agent"] in commands.arguments
+    assert any(item[:2] == ["docker", "run"] and "ham-my-agent:/from:ro" in item for item in commands.arguments)
+
+
+def test_restore_imports_volume(tmp_path: Path) -> None:
+    archive = tmp_path / "my-agent.tar.gz"
+    source = tmp_path / "source" / "my-agent"
+    source.mkdir(parents=True)
+    (source / "note.txt").write_text("hello")
+    import tarfile
+
+    with tarfile.open(archive, "w:gz") as bundle:
+        bundle.add(source, arcname="my-agent")
+    commands = FakeCommands()
+    commands.status = "exited"
+
+    _control(commands, tmp_path).restore("my-agent", archive)
+
+    assert any(item[:2] == ["docker", "run"] and "ham-my-agent:/to" in item for item in commands.arguments)
+    assert (tmp_path / "my-agent" / ".volume").read_text() == "ham-my-agent\n"
 
 
 def _control(

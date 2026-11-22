@@ -16,12 +16,15 @@ def test_install_builds_missing_image_then_runs_gateway(tmp_path: Path) -> None:
 
     installer.install("my-agent")
 
-    data = tmp_path / "my-agent"
+    marker = tmp_path / "my-agent"
     context = str(build_context())
     assert commands.arguments == [
         ["docker", "container", "inspect", "HA-my-agent"],
+        ["docker", "volume", "inspect", "ham-my-agent"],
         ["docker", "image", "inspect", IMAGE],
         ["docker", "build", "-t", IMAGE, context],
+        ["docker", "volume", "inspect", "ham-my-agent"],
+        ["docker", "volume", "create", "ham-my-agent"],
         [
             "docker",
             "run",
@@ -33,7 +36,7 @@ def test_install_builds_missing_image_then_runs_gateway(tmp_path: Path) -> None:
             "--restart",
             "unless-stopped",
             "-v",
-            f"{data}:/opt/data",
+            "ham-my-agent:/opt/data",
             "-e",
             "HERMES_UID=1000",
             "-e",
@@ -63,7 +66,8 @@ def test_install_builds_missing_image_then_runs_gateway(tmp_path: Path) -> None:
             "my-agent",
         ],
     ]
-    assert data.is_dir()
+    assert marker.is_dir()
+    assert (marker / ".volume").read_text() == "ham-my-agent\n"
 
 
 def test_install_skips_build_when_image_exists(tmp_path: Path) -> None:
@@ -85,6 +89,14 @@ def test_rejects_an_existing_container(tmp_path: Path) -> None:
         _installer(commands, tmp_path).install("my-agent")
 
     assert commands.arguments == [["docker", "container", "inspect", "HA-my-agent"]]
+
+
+def test_rejects_an_existing_volume(tmp_path: Path) -> None:
+    commands = FakeCommands()
+    commands.volumes.add("ham-my-agent")
+
+    with pytest.raises(InstallError, match="ham-my-agent already exists"):
+        _installer(commands, tmp_path).install("my-agent")
 
 
 def test_rejects_an_existing_data_directory(tmp_path: Path) -> None:
@@ -121,14 +133,24 @@ def test_reports_each_install_step(tmp_path: Path) -> None:
 
     installer.install("my-agent")
 
-    data = tmp_path / "my-agent"
+    marker = tmp_path / "my-agent"
     assert progress.messages == [
         f"Ensuring image {IMAGE}",
-        f"Creating {data}",
+        "Creating volume ham-my-agent",
+        f"Creating {marker}",
         "Starting container HA-my-agent",
         "Waiting for HA-my-agent",
         "Creating profile my-agent in HA-my-agent at /opt/data",
     ]
+
+
+def test_reports_a_container_that_does_not_start(tmp_path: Path) -> None:
+    commands = FakeCommands()
+    commands.status = "created"
+    installer = _installer(commands, tmp_path, attempts=2)
+
+    with pytest.raises(InstallError, match="did not start"):
+        installer.install("my-agent")
 
 
 def test_build_image_pulls_base_and_tags_ham_image() -> None:
@@ -140,15 +162,6 @@ def test_build_image_pulls_base_and_tags_ham_image() -> None:
     assert commands.arguments == [
         ["docker", "build", "-t", IMAGE, "--pull", str(build_context())],
     ]
-
-
-def test_reports_a_container_that_does_not_start(tmp_path: Path) -> None:
-    commands = FakeCommands()
-    commands.status = "created"
-    installer = _installer(commands, tmp_path, attempts=2)
-
-    with pytest.raises(InstallError, match="did not start"):
-        installer.install("my-agent")
 
 
 class RecordingProgress(Progress):

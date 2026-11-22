@@ -1,4 +1,5 @@
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +17,7 @@ class AgentRecord:
     status: str
     data_directory: Path
     image: str
+    volume_name: str
 
 
 class AgentControl:
@@ -44,6 +46,7 @@ class AgentControl:
             status,
             self._directory(agent),
             image,
+            agent.volume_name,
         )
 
     def start(self, raw_name: str) -> AgentName:
@@ -83,6 +86,10 @@ class AgentControl:
             f"Removing container {agent.container_name}",
             lambda: self._docker.remove(agent.container_name),
         )
+        self._progress.run(
+            f"Removing volume {agent.volume_name}",
+            lambda: self._docker.remove_volume(agent.volume_name),
+        )
         self._progress.run(f"Removing {directory}", lambda: _remove_directory(directory))
         return agent
 
@@ -90,8 +97,10 @@ class AgentControl:
         self._docker.ensure_available()
         agent = AgentName.parse(raw_name)
         directory = self._require_directory(agent)
+        if not self._docker.volume_exists(agent.volume_name):
+            raise InstallError(f"Volume {agent.volume_name} does not exist.")
         archive = destination or directory.with_suffix(".tar.gz")
-        self._pause(agent, directory, archive)
+        self._pause(agent, archive)
         return archive
 
     def restore(self, raw_name: str, archive: Path) -> AgentName:
@@ -102,7 +111,7 @@ class AgentControl:
         self._replace(agent, archive)
         return agent
 
-    def _pause(self, agent: AgentName, directory: Path, archive: Path) -> None:
+    def _pause(self, agent: AgentName, archive: Path) -> None:
         running = self._running(agent)
         if running:
             self._progress.run(
@@ -111,13 +120,19 @@ class AgentControl:
             )
         self._progress.run(
             f"Writing {archive}",
-            lambda: write_archive(directory, archive, agent.profile_name),
+            lambda: self._write_backup(agent, archive),
         )
         if running:
             self._progress.run(
                 f"Starting {agent.container_name}",
                 lambda: self._docker.start(agent.container_name),
             )
+
+    def _write_backup(self, agent: AgentName, archive: Path) -> None:
+        with tempfile.TemporaryDirectory() as staging:
+            root = Path(staging)
+            self._docker.export_volume(agent.volume_name, str(root), agent.profile_name)
+            write_archive(root / agent.profile_name, archive, agent.profile_name)
 
     def _replace(self, agent: AgentName, archive: Path) -> None:
         running = self._running(agent)
@@ -127,17 +142,23 @@ class AgentControl:
                 lambda: self._docker.stop(agent.container_name),
             )
         directory = self._directory(agent)
-        if directory.exists():
-            shutil.rmtree(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / ".volume").write_text(f"{agent.volume_name}\n")
         self._progress.run(
-            f"Restoring {directory}",
-            lambda: extract_archive(archive, self._data_root, agent.profile_name),
+            f"Restoring volume {agent.volume_name}",
+            lambda: self._restore_volume(agent, archive),
         )
         if running:
             self._progress.run(
                 f"Starting {agent.container_name}",
                 lambda: self._docker.start(agent.container_name),
             )
+
+    def _restore_volume(self, agent: AgentName, archive: Path) -> None:
+        with tempfile.TemporaryDirectory() as staging:
+            root = Path(staging)
+            extract_archive(archive, root, agent.profile_name)
+            self._docker.import_volume(agent.volume_name, str(root), agent.profile_name)
 
     def _running(self, agent: AgentName) -> bool:
         return self._docker.status(agent.container_name) == "running"
@@ -156,7 +177,11 @@ class AgentControl:
         raise InstallError(f"Data directory {directory} does not exist.")
 
     def _ensure_present(self, agent: AgentName, directory: Path) -> None:
-        exists = self._docker.container_exists(agent.container_name) or directory.exists()
+        exists = (
+            self._docker.container_exists(agent.container_name)
+            or self._docker.volume_exists(agent.volume_name)
+            or directory.exists()
+        )
         if exists:
             return
         raise InstallError(f"Agent {agent.profile_name} does not exist.")

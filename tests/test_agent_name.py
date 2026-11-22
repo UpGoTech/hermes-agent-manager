@@ -9,6 +9,7 @@ def test_parses_a_profile_name() -> None:
 
     assert agent.profile_name == "my-agent"
     assert agent.container_name == "HA-my-agent"
+    assert agent.volume_name == "ham-my-agent"
 
 
 @pytest.mark.parametrize("raw", ["", "-bad", ".bad", "has space", "has/slash"])

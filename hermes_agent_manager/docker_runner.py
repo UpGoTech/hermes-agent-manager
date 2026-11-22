@@ -10,6 +10,7 @@ from hermes_agent_manager.image import build_context
 IMAGE = "ham/hermes-agent:latest"
 CONTAINER_DATA = "/opt/data"
 SHELL_USER = "hermes"
+ARCHIVE_IMAGE = "alpine:3.20"
 
 
 class DockerRunner:
@@ -55,10 +56,24 @@ class DockerRunner:
         completed = self._commands.run(["docker", "container", "inspect", name])
         return completed.returncode == 0
 
+    def volume_exists(self, name: str) -> bool:
+        completed = self._commands.run(["docker", "volume", "inspect", name])
+        return completed.returncode == 0
+
+    def ensure_volume(self, name: str) -> None:
+        if self.volume_exists(name):
+            return
+        self._check(["docker", "volume", "create", name])
+
+    def remove_volume(self, name: str) -> None:
+        if not self.volume_exists(name):
+            return
+        self._check(["docker", "volume", "rm", name])
+
     def run_gateway(
         self,
         container_name: str,
-        host_path: str,
+        volume_name: str,
         user_id: int,
         group_id: int,
         image: str,
@@ -67,13 +82,20 @@ class DockerRunner:
         self._check(
             _gateway_arguments(
                 container_name,
-                host_path,
+                volume_name,
                 user_id,
                 group_id,
                 image,
                 agent_name,
             )
         )
+
+    def export_volume(self, volume_name: str, host_directory: str, profile_name: str) -> None:
+        self._check(_export_volume_arguments(volume_name, host_directory, profile_name))
+
+    def import_volume(self, volume_name: str, host_directory: str, profile_name: str) -> None:
+        self.ensure_volume(volume_name)
+        self._check(_import_volume_arguments(volume_name, host_directory, profile_name))
 
     def wait_until_running(self, container_name: str) -> None:
         for _ in range(self._attempts):
@@ -145,7 +167,7 @@ def _attached_run(arguments: list[str]) -> int:
 
 def _gateway_arguments(
     container_name: str,
-    host_path: str,
+    volume_name: str,
     user_id: int,
     group_id: int,
     image: str,
@@ -162,7 +184,7 @@ def _gateway_arguments(
         "--restart",
         "unless-stopped",
         "-v",
-        f"{host_path}:/opt/data",
+        f"{volume_name}:{CONTAINER_DATA}",
         "-e",
         f"HERMES_UID={user_id}",
         "-e",
@@ -174,6 +196,46 @@ def _gateway_arguments(
         image,
         "gateway",
         "run",
+    ]
+
+
+def _export_volume_arguments(volume_name: str, host_directory: str, profile_name: str) -> list[str]:
+    script = (
+        f"mkdir -p /to/{profile_name} && "
+        f"cp -a /from/. /to/{profile_name}/"
+    )
+    return [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{volume_name}:/from:ro",
+        "-v",
+        f"{host_directory}:/to",
+        ARCHIVE_IMAGE,
+        "sh",
+        "-c",
+        script,
+    ]
+
+
+def _import_volume_arguments(volume_name: str, host_directory: str, profile_name: str) -> list[str]:
+    script = (
+        "rm -rf /to/* /to/.[!.]* /to/..?* 2>/dev/null; "
+        f"cp -a /from/{profile_name}/. /to/"
+    )
+    return [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{volume_name}:/to",
+        "-v",
+        f"{host_directory}:/from:ro",
+        ARCHIVE_IMAGE,
+        "sh",
+        "-c",
+        script,
     ]
 
 

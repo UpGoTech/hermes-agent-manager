@@ -27,3 +27,7 @@ class AgentName:
     @property
     def profile_name(self) -> str:
         return self.value
+
+    @property
+    def volume_name(self) -> str:
+        return f"ham-{self.value}"

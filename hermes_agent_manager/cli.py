@@ -168,7 +168,8 @@ def _print_info(record: AgentRecord) -> None:
     console.print(f"Container  {record.container_name}")
     console.print(f"Status     {record.status}")
     console.print(f"Image      {record.image or '-'}")
-    console.print(f"Data       {record.data_directory}")
+    console.print(f"Volume     {record.volume_name}")
+    console.print(f"Marker     {record.data_directory}")
 
 
 def build_app() -> typer.Typer:
