@@ -1,84 +1,120 @@
 # Hermes Agent Manager
 
-Command-line tool for installing and managing the official Hermes agent image on a VPS with sensible defaults.
+Command-line tool for installing and managing Hermes agents linked to Frappe Manager sites.
 
-Pass the agent name as a CLI argument. That name becomes the Hermes profile. The container is the same name with an `HA-` prefix.
+Pass the agent name as a CLI argument. That name becomes the Hermes profile. The container is `HA-{site-without-.localhost}-{agent-name}`. Many agents may share one FM site. Containers are labeled under the Docker Compose project `frappe-agents`.
+
+Supported hosts: **macOS**, **Linux**, and **WSL** (run inside the Linux environment, not native Windows Python).
 
 ## Purpose
 
-If you want Hermes agent running on a VPS, you do not need to hand-configure Docker, image tags, or profile setup. Run this tool, supply the agent name, and the rest uses default parameters for a standard VPS deployment of the official Hermes image.
+`ham create` requires an existing FM site. Hermes reaches that site over HTTP the same way your browser does: through FM's host reverse proxy (`http://venus.localhost` → host :80 → `global-nginx-proxy`).
+
+For Hermes the other way, ham joins the FM site network as `{site}-{agent}` and runs the Hermes dashboard on container port `9119` (also published to a per-agent host port for browsers). OpsAi Desk Test must use the site-network URL.
+
+## Data layout
+
+Markers and metadata live next to FM sites (same home as Frappe Manager):
+
+```text
+~/frappe/                    # or $FRAPPE_MANAGER_HOME
+  sites/
+  frappe-agent/
+    venus.localhost/
+      purchase/              # markers; Linux also bind-mounts this to /opt/data
+```
+
+On **macOS / WSL**, Hermes `/opt/data` uses a Docker named volume (`ham-<site>-<agent>`) because Docker Desktop virtiofs cannot `chmod 600` on `gateway.sock`. On **Linux**, the host directory is bind-mounted.
+
+On WSL use the Linux home path (e.g. `/home/<user>/frappe/...`), not `C:\Users\...`.
 
 ## Install
 
-Requires Python 3.11 or newer, and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11 or newer, [uv](https://docs.astral.sh/uv/), Docker, and at least one FM site under `~/frappe/sites` (or `$FRAPPE_MANAGER_HOME/sites`).
 
-From a checkout of this repository:
+From the released tag (anyone):
 
 ```bash
-uv tool install .
+uv tool install git+https://github.com/UpGoTech/hermes-agent-manager@v1.0.0
+ham build-image
 ```
 
-`uv` installs the `ham` command into its tool bin directory, usually `~/.local/bin`.
+From a local checkout:
+
+```bash
+rm -rf build && uv tool install --force --reinstall .
+ham build-image
+```
 
 ## Usage
 
 ```bash
-ham create <agent-name>
+ham create <agent-name> --site <fm-site> --user <dashboard-user>
 ```
+
+Omit `--site` / `--user` on an interactive TTY to pick the site and enter the dashboard username.
 
 ### Example
 
 ```bash
-ham create my-agent
+ham create stm --site venus.localhost --user alice
 ```
 
 This will:
 
-1. Pull `nousresearch/hermes-agent:latest`
-2. Create `~/.ham/my-agent` and mount it at `/opt/data`
-3. Start detached container `HA-my-agent` with `gateway run` and `--restart unless-stopped`
-4. Create Hermes profile `my-agent` inside the container at `/opt/data`. A Hermes install on the host is not used. The container gateway serves that profile.
+1. Require FM site `venus.localhost` (frappe container running)
+2. Ensure `ham/hermes-agent:latest` exists
+3. Create `~/frappe/frappe-agent/venus.localhost/stm/` (markers + Hermes home)
+4. Start `HA-venus-stm` with that directory bind-mounted at `/opt/data`
+5. Create Hermes profile `stm`
+6. Join site network as `venus-stm` and print OpsAi credentials
 
-Host ports are not published, and the dashboard stays off. API keys are not prompted. Add them later in `~/.ham/my-agent/.env`. The official image reads that file from `/opt/data/.env`.
+### OpsAi Settings (Desk Test)
+
+| Field | Value |
+|-------|--------|
+| Gateway URL | `http://venus-stm:9119` (from `ham info` / create) |
+| Auth mode | password |
+| Username | the `--user` / prompted value |
+| Password | printed at end of `ham create` (also in `ham info`) |
+
+Browser gateway `http://127.0.0.1:<port>` is for local browsers only.
 
 ## What gets set for you
 
 | Setting        | Value                                      |
 |----------------|--------------------------------------------|
-| Container name | `HA-<agent-name>`                          |
+| Container name | `HA-{site-slug}-{agent-name}`              |
 | Profile name   | CLI argument (`<agent-name>`)              |
-| Data directory | `~/.ham/<agent-name>`                      |
-| Image          | `nousresearch/hermes-agent:latest`         |
-| Command        | `gateway run`                              |
-| Restart        | `unless-stopped`                           |
-| Ports          | not published                              |
-| Dashboard      | off                                        |
+| Data directory | `~/frappe/frappe-agent/<site>/<agent>/`    |
+| Compose group  | `frappe-agents`                            |
+| FM site        | `--site` / interactive pick                |
+| Dashboard user | `--user` / interactive prompt              |
+| Gateway (OpsAi)| `http://{site-slug}-{agent}:9119`          |
+| Image          | `ham/hermes-agent:latest`                  |
 
-The container runs as the current user id and group id (`HERMES_UID`, `HERMES_GID`).
-
-## Requirements
-
-- A VPS (or host) with Docker available
-- Network access to pull the official Hermes agent image
-- Permission to create and run containers
+`site-slug` is the FM site name with `.localhost` stripped (e.g. `venus.localhost` → `venus`).
 
 ## Commands
 
 | Command | Action |
 |---------|--------|
-| `ham create <agent-name>` | Install the container and profile |
+| `ham create <agent-name> --site <fm-site> --user <name>` | Install agent linked to an FM site |
+| `ham build-image` | Rebuild `ham/hermes-agent:latest` with `--pull` |
 | `ham list` | List agents and container status |
-| `ham info <agent-name>` | Show container, status, image, and data directory |
+| `ham info <agent-name>` | Show agent details (FM-style table) |
 | `ham start <agent-name>` | Start the container |
 | `ham stop <agent-name>` | Stop the container |
 | `ham restart <agent-name>` | Restart the container |
-| `ham shell <agent-name>` | Open a shell in the container at `/opt/data` |
-| `ham delete <agent-name>` | Remove the container and delete its data |
+| `ham shell <agent-name>` | Open a `hermes` user shell at `/opt/data` |
+| `ham delete <agent-name>` | Remove container and data directory |
 | `ham backup <agent-name>` | Archive the data directory |
-| `ham restore <agent-name> <archive>` | Replace the data directory from an archive |
+| `ham restore <agent-name> <archive>` | Restore the data directory from an archive |
 
-`delete` asks before it removes anything. Pass `--yes` to skip the question. `backup` writes `~/.ham/<agent-name>.tar.gz` unless `--output` is set. A running container is stopped for backup and restore, then started again.
+## Migration
+
+Old installs used `~/.ham` markers + Docker named volumes. Delete those agents and recreate under `frappe-agent/`.
 
 ## Status
 
-These commands cover the agent lifecycle. The install does not start the interactive setup wizard.
+Beta on `beta/workstation-image`. Rebuild the image after pulling changes (`ham build-image`).
