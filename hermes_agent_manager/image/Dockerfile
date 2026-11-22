@@ -24,8 +24,11 @@ RUN apt-get -o Acquire::Retries=3 update \
  && usermod -s /bin/bash hermes \
  && printf 'hermes ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/ham \
  && chmod 0440 /etc/sudoers.d/ham \
- && mkdir -p /etc/bash.bashrc.d
+ && mkdir -p /etc/bash.bashrc.d /opt/ham /etc/cont-init.d
 
 COPY bashrc /etc/bash.bashrc.d/ham.bashrc
+COPY ticket_broker.py /opt/ham/ticket_broker.py
+COPY start_ticket_broker.sh /etc/cont-init.d/99-ham-ticket-broker
 
-RUN printf '\nif [ -f /etc/bash.bashrc.d/ham.bashrc ]; then\n  . /etc/bash.bashrc.d/ham.bashrc\nfi\n' >> /etc/bash.bashrc
+RUN printf '\nif [ -f /etc/bash.bashrc.d/ham.bashrc ]; then\n  . /etc/bash.bashrc.d/ham.bashrc\nfi\n' >> /etc/bash.bashrc \
+ && chmod 0755 /opt/ham/ticket_broker.py /etc/cont-init.d/99-ham-ticket-broker

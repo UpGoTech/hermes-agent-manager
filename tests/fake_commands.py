@@ -1,8 +1,4 @@
-import re
 import subprocess
-from pathlib import Path
-
-from hermes_agent_manager.docker_runner import ARCHIVE_IMAGE
 
 
 class FakeCommands:
@@ -11,7 +7,9 @@ class FakeCommands:
         self.existing: set[str] = set()
         self.images: set[str] = set()
         self.volumes: set[str] = set()
+        self.networks: set[str] = set()
         self.status = "running"
+        self.statuses: dict[str, str] = {}
         self.failures: dict[str, str] = {}
 
     def run(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
@@ -25,11 +23,18 @@ class FakeCommands:
         if arguments[:3] == ["docker", "volume", "inspect"]:
             code = 0 if arguments[3] in self.volumes else 1
             return self._completed(arguments, code, "")
+        if arguments[:3] == ["docker", "network", "inspect"]:
+            code = 0 if arguments[3] in self.networks else 1
+            return self._completed(arguments, code, "")
         if arguments[:3] == ["docker", "volume", "create"]:
             self.volumes.add(arguments[3])
             return self._completed(arguments, 0, "")
         if arguments[:3] == ["docker", "volume", "rm"]:
             self.volumes.discard(arguments[3])
+            return self._completed(arguments, 0, "")
+        if arguments[:3] == ["docker", "network", "connect"]:
+            return self._completed(arguments, 0, "")
+        if arguments[:2] == ["docker", "cp"]:
             return self._completed(arguments, 0, "")
         if arguments[:2] == ["docker", "build"]:
             if self._failed(arguments):
@@ -40,7 +45,9 @@ class FakeCommands:
         if self._failed(arguments):
             return self._completed(arguments, 1, self.failures[arguments[1]])
         if arguments[:3] == ["docker", "inspect", "--format"]:
-            if self.status == "absent":
+            name = arguments[-1]
+            status = self.statuses.get(name, self.status)
+            if status == "absent":
                 return self._completed(arguments, 1, "")
             if "Config.Env" in arguments[3]:
                 text = "HERMES_UID=1000\nHERMES_GID=1000\nPATH=/usr/bin\n"
@@ -48,21 +55,17 @@ class FakeCommands:
             if "Image" in arguments[3]:
                 text = "ham/hermes-agent:latest\n"
                 return self._completed(arguments, 0, text, stderr="")
-            return self._completed(arguments, 0, f"{self.status}\n", stderr="")
-        if ARCHIVE_IMAGE in arguments:
-            self._stage_archive_transfer(arguments)
-            return self._completed(arguments, 0, "")
+            return self._completed(arguments, 0, f"{status}\n", stderr="")
+        if any("generate_keys" in item for item in arguments):
+            return self._completed(
+                arguments,
+                0,
+                "{'api_key': 'key-1', 'api_secret': 'secret-1'}\n",
+                stderr="",
+            )
+        if arguments[:2] == ["docker", "exec"] and "./env/bin/python" in arguments:
+            return self._completed(arguments, 0, '{"api_key": "key-1"}\n', stderr="")
         return self._completed(arguments, 0, "")
-
-    def _stage_archive_transfer(self, arguments: list[str]) -> None:
-        mounts = _volume_mounts(arguments)
-        script = arguments[-1]
-        match = re.search(r"/to/([A-Za-z0-9_.-]+)", script)
-        if match and "/from" in mounts and "/to" in mounts:
-            destination = Path(mounts["/to"]) / match.group(1)
-            destination.mkdir(parents=True, exist_ok=True)
-            (destination / "note.txt").write_text("hello")
-
 
     def _failed(self, arguments: list[str]) -> bool:
         return len(arguments) > 1 and arguments[1] in self.failures
@@ -76,17 +79,3 @@ class FakeCommands:
     ) -> subprocess.CompletedProcess[str]:
         error = "" if stderr is not None else stdout
         return subprocess.CompletedProcess(arguments, code, stdout, stderr or error)
-
-
-def _volume_mounts(arguments: list[str]) -> dict[str, str]:
-    mounts: dict[str, str] = {}
-    index = 0
-    while index < len(arguments):
-        if arguments[index] == "-v" and index + 1 < len(arguments):
-            host, _, remainder = arguments[index + 1].partition(":")
-            target = remainder.split(":", 1)[0]
-            mounts[target] = host
-            index += 2
-            continue
-        index += 1
-    return mounts

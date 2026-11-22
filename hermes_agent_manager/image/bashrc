@@ -53,6 +53,20 @@ ham_host() {
   hostname
 }
 
+ham_site() {
+  if [ -n "$FM_SITE" ]; then
+    printf '%s' "$FM_SITE"
+    return
+  fi
+  if [ -f /opt/data/.env ]; then
+    # shellcheck disable=SC1091
+    FM_SITE=$(awk -F= '/^FM_SITE=/{print $2; exit}' /opt/data/.env)
+    if [ -n "$FM_SITE" ]; then
+      printf '%s' "$FM_SITE"
+    fi
+  fi
+}
+
 git_branch() {
   if ! command -v git >/dev/null 2>&1; then
     return
@@ -80,11 +94,33 @@ else
   PS1="${COLOR_USER}\u${COLOR_RESET}@${COLOR_HOST}\$(ham_host)${COLOR_RESET}:${COLOR_DIR}\w${COLOR_GIT}\$(git_branch)${COLOR_RESET}\n${COLOR_PROMPT}\$${COLOR_RESET} "
 fi
 
+# curl maps *.localhost to 127.0.0.1 (RFC 6761). Force FM site host through the
+# host reverse proxy (same path as the Mac browser).
+curl() {
+  local site ip
+  site="${FM_SITE:-}"
+  if [ -z "$site" ] && [ -f /opt/data/.env ]; then
+    site=$(awk -F= '/^FM_SITE=/{print $2; exit}' /opt/data/.env)
+  fi
+  if [ -n "$site" ]; then
+    ip=$(getent hosts host.docker.internal 2>/dev/null | awk '{print $1; exit}')
+    if [ -n "$ip" ]; then
+      command curl --resolve "${site}:80:${ip}" --resolve "${site}:443:${ip}" "$@"
+      return
+    fi
+  fi
+  command curl "$@"
+}
+
 if [[ $- == *i* ]] && [[ -z "$HAM_WELCOME_SHOWN" ]]; then
   export HAM_WELCOME_SHOWN=1
   echo ""
   echo "Welcome to Hermes Agent Manager"
   echo "Agent: $(ham_host)"
+  site=$(ham_site)
+  if [ -n "$site" ]; then
+    echo "FM site: $site ($FRAPPE_URL)"
+  fi
   echo ""
 fi
 

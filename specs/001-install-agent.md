@@ -1,55 +1,64 @@
 # Hermes Agent Manager
 
-Tracer bullet: one command installs one named agent. No wizard, no lifecycle commands yet.
+Tracer bullet: one command installs one named agent linked to an FM site.
 
 ```bash
-ham create my-agent
+ham create my-agent --site venus.localhost --user alice
 ```
+
+FM site network binding is in [005-fm-bridge.md](005-fm-bridge.md). OpsAi gateway is in [006-opsai-remote-gateway.md](006-opsai-remote-gateway.md). Host data layout is in [004-frappe-agent-data.md](004-frappe-agent-data.md).
 
 ## Behavior
 
-`ham create <agent-name>` talks to the host Docker CLI and does this, in order:
+`ham create <agent-name> --site <fm-site> --user <dashboard-user>` talks to the host Docker CLI and does this, in order:
 
 1. Reject an invalid name (Docker container names: start with a letter or digit, then letters, digits, `_`, `.`, `-`).
-2. Derive two names from the argument. For `ham create my-agent`, the container is `HA-my-agent` and the Hermes profile is `my-agent`. The data directory stays keyed by the profile name.
-3. Fail if `docker` is missing, if container `HA-<agent-name>` already exists, or if the data directory already exists.
-4. Ensure workstation image `ham/hermes-agent:latest` (build from packaged Dockerfile if missing; base is `nousresearch/hermes-agent:latest`). See [003-workstation-image.md](003-workstation-image.md).
-5. Create named volume `ham-<agent-name>` (not a host bind — see [004-named-volume.md](004-named-volume.md)), marker `~/.ham/<agent-name>`, and run a detached gateway. Distinct container + volume; never share one data volume across containers:
+2. Resolve FM site (`--site` or interactive pick) and dashboard username (`--user` or interactive prompt).
+3. Derive names from the agent argument and site. For `ham create my-agent --site venus.localhost`:
+   - container `HA-venus-my-agent`
+   - Hermes profile `my-agent`
+   - network alias `venus-my-agent`
+   - data dir `~/frappe/frappe-agent/venus.localhost/my-agent/`
+4. Fail if `docker` is missing, if the container/data directory already exists, or if the dashboard host port collides.
+5. Ensure workstation image `ham/hermes-agent:latest` (build from packaged Dockerfile if missing; base is `nousresearch/hermes-agent:latest`). See [003-workstation-image.md](003-workstation-image.md).
+6. Create the host data directory (markers + Hermes home) and run a detached gateway labeled under compose project `frappe-agents`:
 
 ```bash
-docker volume create ham-<agent-name>
 docker run -d \
-  --name HA-<agent-name> \
-  --hostname <agent-name>.localhost \
+  --name HA-venus-my-agent \
+  --hostname my-agent.localhost \
+  --label com.docker.compose.project=frappe-agents \
   --restart unless-stopped \
-  -v ham-<agent-name>:/opt/data \
+  -v ~/frappe/frappe-agent/venus.localhost/my-agent:/opt/data \
+  -p 127.0.0.1:<host-port>:9119 \
   -e HERMES_UID=<current uid> \
   -e HERMES_GID=<current gid> \
+  --add-host venus.localhost:host-gateway \
   -e HERMES_HOME=/opt/data \
-  -e HAM_AGENT=<agent-name> \
+  -e HAM_AGENT=my-agent \
+  -e FM_SITE=venus.localhost \
+  -e FRAPPE_URL=http://venus.localhost \
+  -e HERMES_DASHBOARD=1 \
+  -e HERMES_DASHBOARD_BASIC_AUTH_USERNAME=alice \
   ham/hermes-agent:latest \
   gateway run
 ```
 
-6. Wait until `HA-<agent-name>` is running, then create the profile inside that container. `HERMES_HOME` is `/opt/data` (the mounted volume), so a Hermes install on the host machine is not used. Do not start a second gateway. The container's `gateway run` process serves every profile in that volume, including the one just created:
+7. Wait until the container is running, create the profile, join the FM site network as `venus-my-agent`, and record env into `/opt/data/.env`.
 
 ```bash
 docker exec --workdir /opt/data -e HERMES_HOME=/opt/data \
-  HA-<agent-name> hermes profile create <agent-name>
+  HA-venus-my-agent hermes profile create my-agent
 ```
-
-The container name is `HA-<agent-name>`. The profile name is `<agent-name>`.
 
 Each long step prints a status line while it runs, then a check mark when it finishes. A failed step prints a cross and the error.
 
-Host ports stay unpublished. Messaging gateways do not need them, and publishing `8642` would collide on a second agent. Dashboard stays off (`HERMES_DASHBOARD` unset) so the install does not expose an unauthenticated UI.
-
 ```mermaid
 flowchart LR
-  cli["ham create my-agent"] --> ensure["ensure ham/hermes-agent"]
-  ensure --> run["container HA-my-agent"]
+  cli["ham create my-agent --site venus --user alice"] --> ensure["ensure ham/hermes-agent"]
+  ensure --> run["container HA-venus-my-agent"]
   run --> profile["profile my-agent"]
-  profile --> data["~/.ham/my-agent"]
+  profile --> data["frappe-agent/venus.localhost/my-agent"]
 ```
 
 ## Layout
@@ -58,23 +67,23 @@ Python package, Typer, pytest. Install the command with `uv tool install .`. Doc
 
 - [pyproject.toml](../pyproject.toml) — package `hermes-agent-manager`, deps `typer`, dev `pytest`
 - `hermes_agent_manager/cli.py` — `ham` entry point
-- `hermes_agent_manager/agent_name.py` — name validation
+- `hermes_agent_manager/agent_name.py` — name validation and site-aware container/alias
+- `hermes_agent_manager/agent_paths.py` — `frappe-agent/<site>/<agent>` paths
+- `hermes_agent_manager/dashboard_user.py` — dashboard username input
 - `hermes_agent_manager/installer.py` — install sequence
 - `hermes_agent_manager/docker_runner.py` — subprocess wrapper around `docker`
 - `tests/` — fake runner records the exact `docker` argv; no daemon required
 
 ## Tests
 
-- Valid and invalid names
-- Install argv: ensure/build `ham/hermes-agent:latest`, container `--name HA-<agent-name>`, volume path, uid/gid, `HERMES_HOME=/opt/data`, `gateway run`, then `docker exec` in `/opt/data` for profile create using `<agent-name>`
-- Step messages for image ensure, data directory, container start, wait, and profile create
-- Refuses an existing `HA-<agent-name>` container and an existing data directory
+- Valid and invalid names; site-slug strips `.localhost`
+- Install argv: container `HA-<site-slug>-<agent>`, bind mount path, compose project label, uid/gid, dashboard user env, network connect alias
+- Refuses existing container/data directory and missing `--user` when non-interactive
 - Surfaces a clear error when `docker` is not on `PATH`
 
-API keys are not prompted. They are set later in `~/.ham/<name>/.env`. The official image reads that file from `/opt/data/.env`.
+API keys are not prompted. They are set later in `/opt/data/.env`. The official image reads that file from the volume.
 
 ## Out of scope
 
-- Interactive setup wizard
-- `list`, `start`, `stop`, and `remove`
-- Published host ports and the dashboard
+- Interactive setup wizard beyond site/user prompts
+- Frappe User / API key provisioning inside the site

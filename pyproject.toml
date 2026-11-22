@@ -1,10 +1,16 @@
 [project]
 name = "hermes-agent-manager"
-version = "0.1.1"
-description = "Manage Hermes agents on a VPS"
+version = "1.0.0"
+description = "CLI to install and manage Hermes agents linked to Frappe Manager sites"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
 dependencies = ["typer>=0.12"]
+
+[project.urls]
+Homepage = "https://github.com/UpGoTech/hermes-agent-manager"
+Repository = "https://github.com/UpGoTech/hermes-agent-manager"
+Issues = "https://github.com/UpGoTech/hermes-agent-manager/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
@@ -22,8 +28,13 @@ include = ["hermes_agent_manager", "hermes_agent_manager.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-"hermes_agent_manager" = ["image/Dockerfile", "image/bashrc"]
-"hermes_agent_manager.image" = ["Dockerfile", "bashrc"]
+"hermes_agent_manager" = [
+  "image/*",
+  "frappe_app/ham_bridge/setup.py",
+  "frappe_app/ham_bridge/MANIFEST.in",
+  "frappe_app/ham_bridge/ham_bridge/**/*",
+]
+"hermes_agent_manager.image" = ["*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
