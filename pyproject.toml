@@ -1,6 +1,6 @@
 [project]
 name = "hermes-agent-manager"
-version = "0.1.0"
+version = "0.1.1"
 description = "Manage Hermes agents on a VPS"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,10 +17,13 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["hermes_agent_manager*"]
+where = ["."]
+include = ["hermes_agent_manager", "hermes_agent_manager.*"]
+namespaces = false
 
 [tool.setuptools.package-data]
-hermes_agent_manager = ["image/Dockerfile", "image/bashrc"]
+"hermes_agent_manager" = ["image/Dockerfile", "image/bashrc"]
+"hermes_agent_manager.image" = ["Dockerfile", "bashrc"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

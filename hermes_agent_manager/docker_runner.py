@@ -83,7 +83,15 @@ class DockerRunner:
         raise InstallError(f"Container {container_name} did not start.")
 
     def create_profile(self, container_name: str, profile_name: str) -> None:
-        self._check(_profile_arguments(container_name, profile_name))
+        arguments = _profile_arguments(container_name, profile_name)
+        last_error = ""
+        for _ in range(self._attempts):
+            completed = self._commands.run(arguments)
+            if completed.returncode == 0:
+                return
+            last_error = _command_error(completed, arguments)
+            self._sleep(1)
+        raise InstallError(last_error)
 
     def status(self, container_name: str) -> str:
         return self._status(container_name)
@@ -124,8 +132,7 @@ class DockerRunner:
         completed = self._commands.run(arguments)
         if completed.returncode == 0:
             return
-        detail = completed.stderr.strip() or completed.stdout.strip()
-        raise InstallError(detail or f"Docker command failed: {' '.join(arguments)}")
+        raise InstallError(_command_error(completed, arguments))
 
 
 def _docker_on_path() -> bool:
@@ -211,3 +218,10 @@ def _exec_arguments(container_name: str, interactive: bool = False) -> list[str]
 
 def _agent_hostname(agent_name: str) -> str:
     return f"{agent_name}.localhost"
+
+
+def _command_error(completed: subprocess.CompletedProcess[str], arguments: list[str]) -> str:
+    detail = "\n".join(
+        part for part in (completed.stderr.strip(), completed.stdout.strip()) if part
+    )
+    return detail or f"Docker command failed: {' '.join(arguments)}"
