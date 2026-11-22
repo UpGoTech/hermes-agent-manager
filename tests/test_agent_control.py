@@ -18,7 +18,7 @@ def test_lists_agents_with_container_status(tmp_path: Path) -> None:
     assert records[0].profile_name == "my-agent"
     assert records[0].container_name == "HA-my-agent"
     assert records[0].status == "running"
-    assert records[0].image == "nousresearch/hermes-agent:latest"
+    assert records[0].image == "ham/hermes-agent:latest"
 
 
 def test_describes_a_missing_container(tmp_path: Path) -> None:

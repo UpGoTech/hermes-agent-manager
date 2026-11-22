@@ -4,7 +4,8 @@
 
 | Command | Action |
 |---------|--------|
-| `create` | Install the official image, container `HA-<agent-name>`, and profile `<agent-name>` |
+| `create` | Ensure `ham/hermes-agent:latest`, then install container `HA-<agent-name>` and profile `<agent-name>` |
+| `build-image` | Force-rebuild `ham/hermes-agent:latest` with `--pull` |
 | `list` | Show each agent under `~/.ham` with container status |
 | `info` | Show one agent's container, status, image, and data directory |
 | `start` | `docker start HA-<agent-name>` |

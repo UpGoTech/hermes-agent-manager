@@ -19,6 +19,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["hermes_agent_manager*"]
 
+[tool.setuptools.package-data]
+hermes_agent_manager = ["image/Dockerfile", "image/bashrc"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 
 from hermes_agent_manager.agent_control import AgentControl, AgentRecord
-from hermes_agent_manager.docker_runner import DockerRunner
+from hermes_agent_manager.docker_runner import IMAGE, DockerRunner
 from hermes_agent_manager.errors import InstallError
 from hermes_agent_manager.installer import AgentInstaller
 from hermes_agent_manager.progress import ConsoleProgress, Progress
@@ -41,6 +41,20 @@ def create(agent_name: str = typer.Argument(help="Hermes profile name")) -> None
         f"Installed profile {agent.profile_name} in container {agent.container_name} "
         "at /opt/data. The container gateway serves this profile."
     )
+
+
+@app.command("build-image")
+def build_image() -> None:
+    """Rebuild the ham workstation image from the packaged Dockerfile."""
+    progress = ConsoleProgress()
+    try:
+        progress.run(
+            f"Building {IMAGE}",
+            lambda: DockerRunner().build_image(IMAGE, pull=True),
+        )
+    except InstallError as error:
+        _fail(progress, error)
+    progress.done(f"Built {IMAGE}.")
 
 
 @app.command("list")

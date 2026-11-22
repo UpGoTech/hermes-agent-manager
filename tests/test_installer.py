@@ -4,21 +4,24 @@ import pytest
 
 from hermes_agent_manager.docker_runner import IMAGE, DockerRunner
 from hermes_agent_manager.errors import InstallError
+from hermes_agent_manager.image import build_context
 from hermes_agent_manager.installer import AgentInstaller
 from hermes_agent_manager.progress import Progress
 from tests.fake_commands import FakeCommands
 
 
-def test_install_runs_expected_docker_commands(tmp_path: Path) -> None:
+def test_install_builds_missing_image_then_runs_gateway(tmp_path: Path) -> None:
     commands = FakeCommands()
     installer = _installer(commands, tmp_path)
 
     installer.install("my-agent")
 
     data = tmp_path / "my-agent"
+    context = str(build_context())
     assert commands.arguments == [
         ["docker", "container", "inspect", "HA-my-agent"],
-        ["docker", "pull", IMAGE],
+        ["docker", "image", "inspect", IMAGE],
+        ["docker", "build", "-t", IMAGE, context],
         [
             "docker",
             "run",
@@ -57,6 +60,17 @@ def test_install_runs_expected_docker_commands(tmp_path: Path) -> None:
     assert data.is_dir()
 
 
+def test_install_skips_build_when_image_exists(tmp_path: Path) -> None:
+    commands = FakeCommands()
+    commands.images.add(IMAGE)
+    installer = _installer(commands, tmp_path)
+
+    installer.install("my-agent")
+
+    assert ["docker", "build", "-t", IMAGE, str(build_context())] not in commands.arguments
+    assert ["docker", "image", "inspect", IMAGE] in commands.arguments
+
+
 def test_rejects_an_existing_container(tmp_path: Path) -> None:
     commands = FakeCommands()
     commands.existing.add("HA-my-agent")
@@ -89,9 +103,9 @@ def test_rejects_missing_docker(tmp_path: Path) -> None:
 
 def test_reports_docker_stderr(tmp_path: Path) -> None:
     commands = FakeCommands()
-    commands.failures["pull"] = "pull denied"
+    commands.failures["build"] = "build failed"
 
-    with pytest.raises(InstallError, match="pull denied"):
+    with pytest.raises(InstallError, match="build failed"):
         _installer(commands, tmp_path).install("my-agent")
 
 
@@ -103,11 +117,22 @@ def test_reports_each_install_step(tmp_path: Path) -> None:
 
     data = tmp_path / "my-agent"
     assert progress.messages == [
-        f"Pulling {IMAGE}",
+        f"Ensuring image {IMAGE}",
         f"Creating {data}",
         "Starting container HA-my-agent",
         "Waiting for HA-my-agent",
         "Creating profile my-agent in HA-my-agent at /opt/data",
+    ]
+
+
+def test_build_image_pulls_base_and_tags_ham_image() -> None:
+    commands = FakeCommands()
+    docker = DockerRunner(commands, available=lambda: True, sleep=lambda _seconds: None)
+
+    docker.build_image(IMAGE, pull=True)
+
+    assert commands.arguments == [
+        ["docker", "build", "-t", IMAGE, "--pull", str(build_context())],
     ]
 
 

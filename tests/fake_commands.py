@@ -5,6 +5,7 @@ class FakeCommands:
     def __init__(self) -> None:
         self.arguments: list[list[str]] = []
         self.existing: set[str] = set()
+        self.images: set[str] = set()
         self.status = "running"
         self.failures: dict[str, str] = {}
 
@@ -13,13 +14,22 @@ class FakeCommands:
         if arguments[:3] == ["docker", "container", "inspect"]:
             code = 0 if arguments[3] in self.existing else 1
             return self._completed(arguments, code, "")
+        if arguments[:3] == ["docker", "image", "inspect"]:
+            code = 0 if arguments[3] in self.images else 1
+            return self._completed(arguments, code, "")
+        if arguments[:2] == ["docker", "build"]:
+            if self._failed(arguments):
+                return self._completed(arguments, 1, self.failures["build"])
+            tag = arguments[arguments.index("-t") + 1]
+            self.images.add(tag)
+            return self._completed(arguments, 0, "")
         if self._failed(arguments):
             return self._completed(arguments, 1, self.failures[arguments[1]])
         if arguments[:3] == ["docker", "inspect", "--format"]:
             if self.status == "absent":
                 return self._completed(arguments, 1, "")
             if "Image" in arguments[3]:
-                text = "nousresearch/hermes-agent:latest\n"
+                text = "ham/hermes-agent:latest\n"
                 return self._completed(arguments, 0, text, stderr="")
             return self._completed(arguments, 0, f"{self.status}\n", stderr="")
         return self._completed(arguments, 0, "")

@@ -5,8 +5,9 @@ from collections.abc import Callable
 
 from hermes_agent_manager.commands import CommandRunner, SubprocessCommandRunner
 from hermes_agent_manager.errors import InstallError
+from hermes_agent_manager.image import build_context
 
-IMAGE = "nousresearch/hermes-agent:latest"
+IMAGE = "ham/hermes-agent:latest"
 CONTAINER_DATA = "/opt/data"
 
 
@@ -32,6 +33,22 @@ class DockerRunner:
 
     def pull(self, image: str) -> None:
         self._check(["docker", "pull", image])
+
+    def image_exists(self, image: str) -> bool:
+        completed = self._commands.run(["docker", "image", "inspect", image])
+        return completed.returncode == 0
+
+    def build_image(self, image: str, context: str | None = None, pull: bool = False) -> None:
+        arguments = ["docker", "build", "-t", image]
+        if pull:
+            arguments.append("--pull")
+        arguments.append(context or str(build_context()))
+        self._check(arguments)
+
+    def ensure_image(self, image: str) -> None:
+        if self.image_exists(image):
+            return
+        self.build_image(image)
 
     def container_exists(self, name: str) -> bool:
         completed = self._commands.run(["docker", "container", "inspect", name])

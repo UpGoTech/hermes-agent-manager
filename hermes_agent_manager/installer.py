@@ -44,7 +44,7 @@ class AgentInstaller:
         raise InstallError(f"Data directory {path} already exists.")
 
     def _start(self, agent: AgentName) -> None:
-        self._progress.run(f"Pulling {IMAGE}", lambda: self._docker.pull(IMAGE))
+        self._progress.run(f"Ensuring image {IMAGE}", lambda: self._docker.ensure_image(IMAGE))
         directory = self._progress.run(
             f"Creating {self._data_directory(agent)}",
             lambda: self._prepare_directory(agent),

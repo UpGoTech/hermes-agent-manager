@@ -13,7 +13,7 @@ ham create my-agent
 1. Reject an invalid name (Docker container names: start with a letter or digit, then letters, digits, `_`, `.`, `-`).
 2. Derive two names from the argument. For `ham create my-agent`, the container is `HA-my-agent` and the Hermes profile is `my-agent`. The data directory stays keyed by the profile name.
 3. Fail if `docker` is missing, if container `HA-<agent-name>` already exists, or if the data directory already exists.
-4. `docker pull nousresearch/hermes-agent:latest`
+4. Ensure workstation image `ham/hermes-agent:latest` (build from packaged Dockerfile if missing; base is `nousresearch/hermes-agent:latest`). See [003-workstation-image.md](003-workstation-image.md).
 5. Create `~/.ham/<agent-name>` and run a detached gateway. This matches the official [one container per profile](https://hermes-agent.nousresearch.com/docs/user-guide/docker) layout (distinct container name and volume; never share `~/.hermes` across containers):
 
 ```bash
@@ -24,7 +24,7 @@ docker run -d \
   -e HERMES_UID=<current uid> \
   -e HERMES_GID=<current gid> \
   -e HERMES_HOME=/opt/data \
-  nousresearch/hermes-agent:latest \
+  ham/hermes-agent:latest \
   gateway run
 ```
 
@@ -43,8 +43,8 @@ Host ports stay unpublished. Messaging gateways do not need them, and publishing
 
 ```mermaid
 flowchart LR
-  cli["ham create my-agent"] --> pull["docker pull latest"]
-  pull --> run["container HA-my-agent"]
+  cli["ham create my-agent"] --> ensure["ensure ham/hermes-agent"]
+  ensure --> run["container HA-my-agent"]
   run --> profile["profile my-agent"]
   profile --> data["~/.ham/my-agent"]
 ```
@@ -63,8 +63,8 @@ Python package, Typer, pytest. Install the command with `uv tool install .`. Doc
 ## Tests
 
 - Valid and invalid names
-- Install argv: container `--name HA-<agent-name>`, volume path, uid/gid, `HERMES_HOME=/opt/data`, `gateway run`, then `docker exec` in `/opt/data` for profile create using `<agent-name>`
-- Step messages for pull, data directory, container start, wait, and profile create
+- Install argv: ensure/build `ham/hermes-agent:latest`, container `--name HA-<agent-name>`, volume path, uid/gid, `HERMES_HOME=/opt/data`, `gateway run`, then `docker exec` in `/opt/data` for profile create using `<agent-name>`
+- Step messages for image ensure, data directory, container start, wait, and profile create
 - Refuses an existing `HA-<agent-name>` container and an existing data directory
 - Surfaces a clear error when `docker` is not on `PATH`
 
