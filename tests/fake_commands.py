@@ -28,6 +28,9 @@ class FakeCommands:
         if arguments[:3] == ["docker", "inspect", "--format"]:
             if self.status == "absent":
                 return self._completed(arguments, 1, "")
+            if "Config.Env" in arguments[3]:
+                text = "HERMES_UID=1000\nHERMES_GID=1000\nPATH=/usr/bin\n"
+                return self._completed(arguments, 0, text, stderr="")
             if "Image" in arguments[3]:
                 text = "ham/hermes-agent:latest\n"
                 return self._completed(arguments, 0, text, stderr="")

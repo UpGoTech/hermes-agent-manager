@@ -11,7 +11,7 @@ Tracer bullet: `ham create` runs a FM-style fat image so `ham shell` has real CL
 5. Tag the built image `ham/hermes-agent:latest`.
 6. `ham create` builds that tag when it is missing (Docker pulls the Hermes base during build). Existing agents keep working; new creates use the ham image.
 7. `ham build-image` force-rebuilds with `--pull` so base updates are easy to test.
-8. `ham shell` still `docker exec -it ... bash` at `/opt/data`; the richer tools come from the image, not from a different exec.
+8. `ham shell` / profile create `docker exec` as `HERMES_UID:HERMES_GID` so the CLI matches the gateway user (root shells leave root-owned files and trip `gateway.sock` checks).
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
 
 - Create builds when the ham image is absent, skips build when present, then runs the gateway with `ham/hermes-agent:latest`
 - `build-image` runs `docker build --pull -t ham/hermes-agent:latest <context>`
-- Shell argv unchanged except the container already uses the ham image
+- Shell and profile create pass `--user` from the container's `HERMES_UID` / `HERMES_GID`
 
 ## Out of scope
 

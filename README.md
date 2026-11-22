@@ -81,7 +81,7 @@ The container runs as the current user id and group id (`HERMES_UID`, `HERMES_GI
 | `ham start <agent-name>` | Start the container |
 | `ham stop <agent-name>` | Stop the container |
 | `ham restart <agent-name>` | Restart the container |
-| `ham shell <agent-name>` | Open a shell in the container at `/opt/data` |
+| `ham shell <agent-name>` | Open a shell as `HERMES_UID` at `/opt/data` |
 | `ham delete <agent-name>` | Remove the container and delete its data |
 | `ham backup <agent-name>` | Archive the data directory |
 | `ham restore <agent-name> <archive>` | Replace the data directory from an archive |

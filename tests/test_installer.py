@@ -45,7 +45,16 @@ def test_install_builds_missing_image_then_runs_gateway(tmp_path: Path) -> None:
         ["docker", "inspect", "--format", "{{.State.Status}}", "HA-my-agent"],
         [
             "docker",
+            "inspect",
+            "--format",
+            "{{range .Config.Env}}{{println .}}{{end}}",
+            "HA-my-agent",
+        ],
+        [
+            "docker",
             "exec",
+            "--user",
+            "1000:1000",
             "--workdir",
             "/opt/data",
             "-e",

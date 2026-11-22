@@ -54,8 +54,9 @@ def test_shell_runs_inside_the_container(tmp_path: Path) -> None:
     control.shell("my-agent")
 
     assert attached == [[
-        "docker", "exec", "-it", "--workdir", "/opt/data",
-        "-e", "HERMES_HOME=/opt/data", "HA-my-agent", "bash",
+        "docker", "exec", "-it", "--user", "1000:1000",
+        "--workdir", "/opt/data", "-e", "HERMES_HOME=/opt/data",
+        "HA-my-agent", "bash",
     ]]
 
 

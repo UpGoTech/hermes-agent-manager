@@ -72,10 +72,17 @@ class DockerRunner:
         raise InstallError(f"Container {container_name} did not start.")
 
     def create_profile(self, container_name: str, profile_name: str) -> None:
-        self._check(_profile_arguments(container_name, profile_name))
+        user = self.runtime_user(container_name)
+        self._check(_profile_arguments(container_name, profile_name, user))
 
     def status(self, container_name: str) -> str:
         return self._status(container_name)
+
+    def runtime_user(self, container_name: str) -> str | None:
+        completed = self._commands.run(_environment_arguments(container_name))
+        if completed.returncode != 0:
+            return None
+        return _user_from_environment(completed.stdout)
 
     def image(self, container_name: str) -> str:
         completed = self._commands.run(_image_arguments(container_name))
@@ -98,7 +105,8 @@ class DockerRunner:
         self._check(["docker", "rm", "-f", container_name])
 
     def shell(self, container_name: str) -> None:
-        code = self._attached(_shell_arguments(container_name))
+        user = self.runtime_user(container_name)
+        code = self._attached(_shell_arguments(container_name, user))
         if code == 0:
             return
         raise InstallError(f"Shell in {container_name} exited with status {code}.")
@@ -162,31 +170,65 @@ def _image_arguments(container_name: str) -> list[str]:
     return ["docker", "inspect", "--format", "{{.Config.Image}}", container_name]
 
 
-def _shell_arguments(container_name: str) -> list[str]:
-    return [
-        "docker",
-        "exec",
-        "-it",
-        "--workdir",
-        CONTAINER_DATA,
-        "-e",
-        f"HERMES_HOME={CONTAINER_DATA}",
-        container_name,
-        "bash",
-    ]
+def _shell_arguments(container_name: str, user: str | None) -> list[str]:
+    return _exec_arguments(container_name, user, interactive=True) + ["bash"]
 
 
-def _profile_arguments(container_name: str, profile_name: str) -> list[str]:
-    return [
-        "docker",
-        "exec",
-        "--workdir",
-        CONTAINER_DATA,
-        "-e",
-        f"HERMES_HOME={CONTAINER_DATA}",
-        container_name,
+def _profile_arguments(
+    container_name: str,
+    profile_name: str,
+    user: str | None,
+) -> list[str]:
+    return _exec_arguments(container_name, user) + [
         "hermes",
         "profile",
         "create",
         profile_name,
     ]
+
+
+def _exec_arguments(
+    container_name: str,
+    user: str | None,
+    interactive: bool = False,
+) -> list[str]:
+    arguments = ["docker", "exec"]
+    if interactive:
+        arguments.append("-it")
+    if user:
+        arguments.extend(["--user", user])
+    arguments.extend(
+        [
+            "--workdir",
+            CONTAINER_DATA,
+            "-e",
+            f"HERMES_HOME={CONTAINER_DATA}",
+            container_name,
+        ]
+    )
+    return arguments
+
+
+def _environment_arguments(container_name: str) -> list[str]:
+    return [
+        "docker",
+        "inspect",
+        "--format",
+        "{{range .Config.Env}}{{println .}}{{end}}",
+        container_name,
+    ]
+
+
+def _user_from_environment(text: str) -> str | None:
+    values: dict[str, str] = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key in {"HERMES_UID", "HERMES_GID"}:
+            values[key] = value
+    user_id = values.get("HERMES_UID")
+    group_id = values.get("HERMES_GID")
+    if user_id is None or group_id is None:
+        return None
+    return f"{user_id}:{group_id}"
