@@ -11,7 +11,7 @@
 | `start` | `docker start HA-<agent-name>` |
 | `stop` | `docker stop HA-<agent-name>` |
 | `restart` | `docker restart HA-<agent-name>` |
-| `shell` | `docker exec -it --user HERMES_UID:HERMES_GID` a shell in `HA-<agent-name>` at `/opt/data` |
+| `shell` | `docker exec -it --user hermes` at `/opt/data`; prompt is `hermes@<agent-name>.localhost` |
 | `delete` | Remove container `HA-<agent-name>` and delete `~/.ham/<agent-name>` |
 | `backup` | Write a gzip archive of the data directory. Stop a running container first, then start it again |
 | `restore` | Replace the data directory from an archive. Stop a running container first, then start it again |

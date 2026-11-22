@@ -8,7 +8,7 @@ Pass the agent name as a CLI argument. That name becomes the Hermes profile. The
 
 If you want Hermes agent running on a VPS, you do not need to hand-configure Docker, image tags, or profile setup. Run this tool, supply the agent name, and the rest uses default parameters for a standard VPS deployment.
 
-On the `beta/workstation-image` branch, `ham create` builds a local workstation image (`ham/hermes-agent:latest`) on top of the official Hermes image. That adds shell tools (`vim`, `jq`, `tree`, `sudo`, …) and a richer bash prompt for `ham shell`, similar to Frappe Manager's fat image.
+On the `beta/workstation-image` branch, `ham create` builds a local workstation image (`ham/hermes-agent:latest`) on top of the official Hermes image. Like Frappe Manager's `frappe` user, shell access is the named `hermes` user (not root), with hostname `<agent>.localhost` so the prompt reads `hermes@my-agent.localhost`.
 
 ## Install
 
@@ -38,8 +38,8 @@ This will:
 
 1. Ensure `ham/hermes-agent:latest` exists (build it from the packaged Dockerfile if missing; Docker pulls `nousresearch/hermes-agent:latest` as the base)
 2. Create `~/.ham/my-agent` and mount it at `/opt/data`
-3. Start detached container `HA-my-agent` with `gateway run` and `--restart unless-stopped`
-4. Create Hermes profile `my-agent` inside the container at `/opt/data`. A Hermes install on the host is not used. The container gateway serves that profile.
+3. Start detached container `HA-my-agent` with hostname `my-agent.localhost`, `gateway run`, and `--restart unless-stopped`
+4. Create Hermes profile `my-agent` as user `hermes` inside the container at `/opt/data`. A Hermes install on the host is not used. The container gateway serves that profile.
 
 Host ports are not published, and the dashboard stays off. API keys are not prompted. Add them later in `~/.ham/my-agent/.env`. The image reads that file from `/opt/data/.env`.
 
@@ -81,7 +81,7 @@ The container runs as the current user id and group id (`HERMES_UID`, `HERMES_GI
 | `ham start <agent-name>` | Start the container |
 | `ham stop <agent-name>` | Stop the container |
 | `ham restart <agent-name>` | Restart the container |
-| `ham shell <agent-name>` | Open a shell as `HERMES_UID` at `/opt/data` |
+| `ham shell <agent-name>` | Open a `hermes` user shell at `/opt/data` (`hermes@<agent>.localhost`) |
 | `ham delete <agent-name>` | Remove the container and delete its data |
 | `ham backup <agent-name>` | Archive the data directory |
 | `ham restore <agent-name> <archive>` | Replace the data directory from an archive |

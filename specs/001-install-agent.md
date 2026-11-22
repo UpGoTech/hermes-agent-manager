@@ -19,11 +19,13 @@ ham create my-agent
 ```bash
 docker run -d \
   --name HA-<agent-name> \
+  --hostname <agent-name>.localhost \
   --restart unless-stopped \
   -v ~/.ham/<agent-name>:/opt/data \
   -e HERMES_UID=<current uid> \
   -e HERMES_GID=<current gid> \
   -e HERMES_HOME=/opt/data \
+  -e HAM_AGENT=<agent-name> \
   ham/hermes-agent:latest \
   gateway run
 ```

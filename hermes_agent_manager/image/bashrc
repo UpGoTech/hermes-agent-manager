@@ -44,6 +44,15 @@ if command -v git >/dev/null 2>&1; then
   alias gl='git log --oneline --graph --decorate'
 fi
 
+# Like FM's fm_host(): show agent.localhost in the prompt.
+ham_host() {
+  if [ -n "$HAM_AGENT" ]; then
+    printf '%s.localhost' "$HAM_AGENT"
+    return
+  fi
+  hostname
+}
+
 git_branch() {
   if ! command -v git >/dev/null 2>&1; then
     return
@@ -63,11 +72,20 @@ COLOR_ROOT='\[\033[01;31m\]'
 COLOR_HOST='\[\033[01;36m\]'
 COLOR_DIR='\[\033[01;34m\]'
 COLOR_GIT='\[\033[01;33m\]'
+COLOR_PROMPT='\[\033[01;32m\]'
 
 if [ "$EUID" -eq 0 ]; then
-  PS1="${COLOR_ROOT}\u${COLOR_RESET}@${COLOR_HOST}\h${COLOR_RESET}:${COLOR_DIR}\w${COLOR_GIT}\$(git_branch)${COLOR_RESET}\n${COLOR_ROOT}# ${COLOR_RESET}"
+  PS1="${COLOR_ROOT}\u${COLOR_RESET}@${COLOR_HOST}\$(ham_host)${COLOR_RESET}:${COLOR_DIR}\w${COLOR_GIT}\$(git_branch)${COLOR_RESET}\n${COLOR_ROOT}# ${COLOR_RESET}"
 else
-  PS1="${COLOR_USER}\u${COLOR_RESET}@${COLOR_HOST}\h${COLOR_RESET}:${COLOR_DIR}\w${COLOR_GIT}\$(git_branch)${COLOR_RESET}\n${COLOR_USER}\$${COLOR_RESET} "
+  PS1="${COLOR_USER}\u${COLOR_RESET}@${COLOR_HOST}\$(ham_host)${COLOR_RESET}:${COLOR_DIR}\w${COLOR_GIT}\$(git_branch)${COLOR_RESET}\n${COLOR_PROMPT}\$${COLOR_RESET} "
+fi
+
+if [[ $- == *i* ]] && [[ -z "$HAM_WELCOME_SHOWN" ]]; then
+  export HAM_WELCOME_SHOWN=1
+  echo ""
+  echo "Welcome to Hermes Agent Manager"
+  echo "Agent: $(ham_host)"
+  echo ""
 fi
 
 if [ -f /opt/data/.bashrc ]; then

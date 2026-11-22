@@ -77,6 +77,7 @@ class AgentInstaller:
             self._user_id,
             self._group_id,
             IMAGE,
+            agent.profile_name,
         )
 
     def _open_profile(self, agent: AgentName) -> None:

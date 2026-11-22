@@ -21,7 +21,8 @@ RUN apt-get -o Acquire::Retries=3 update \
  && rm -rf /var/lib/apt/lists/* \
  && sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
  && dpkg-reconfigure --frontend=noninteractive locales \
- && printf 'ALL ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/ham \
+ && usermod -s /bin/bash hermes \
+ && printf 'hermes ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/ham \
  && chmod 0440 /etc/sudoers.d/ham \
  && mkdir -p /etc/bash.bashrc.d
 

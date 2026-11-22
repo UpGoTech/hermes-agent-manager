@@ -6,12 +6,12 @@ Tracer bullet: `ham create` runs a FM-style fat image so `ham shell` has real CL
 
 1. Ship a Dockerfile under `hermes_agent_manager/image/` that starts `FROM nousresearch/hermes-agent:latest`.
 2. Install interactive packages: `vim`, `nano`, `less`, `tree`, `jq`, `sudo`, `wget`, `bash-completion`, `net-tools`, `iproute2`, `file`, `unzip`, `locales`.
-3. Passwordless sudo for every user (local beta workstation; same idea as FM's `frappe` sudo).
-4. System-wide bash config at `/etc/bash.bashrc.d/ham.bashrc` (aliases, history, colored prompt). Shell stays bash — current FM also left zsh.
+3. Passwordless sudo for the image `hermes` user only (FM's `frappe` pattern). Login shell is bash.
+4. System-wide bash config at `/etc/bash.bashrc.d/ham.bashrc` with `ham_host()` so the prompt is `hermes@<agent>.localhost` (FM's `frappe@venus.localhost` style).
 5. Tag the built image `ham/hermes-agent:latest`.
-6. `ham create` builds that tag when it is missing (Docker pulls the Hermes base during build). Existing agents keep working; new creates use the ham image.
+6. `ham create` builds that tag when missing, sets `--hostname <agent>.localhost` and `HAM_AGENT=<agent>`, and keeps `HERMES_UID`/`HERMES_GID` so the `hermes` user maps to the host operator.
 7. `ham build-image` force-rebuilds with `--pull` so base updates are easy to test.
-8. `ham shell` / profile create `docker exec` as `HERMES_UID:HERMES_GID` so the CLI matches the gateway user (root shells leave root-owned files and trip `gateway.sock` checks).
+8. `ham shell` / profile create always `docker exec --user hermes` (never root).
 
 ```mermaid
 flowchart LR
@@ -20,8 +20,8 @@ flowchart LR
   build --> base["FROM nousresearch/hermes-agent"]
   ensure -->|yes| run["container HA-name"]
   build --> run
-  shell["ham shell"] --> exec["docker exec bash"]
-  exec --> tools["vim jq tree sudo ..."]
+  shell["ham shell"] --> exec["docker exec --user hermes"]
+  exec --> prompt["hermes@agent.localhost"]
 ```
 
 ## Layout
@@ -37,7 +37,8 @@ flowchart LR
 
 - Create builds when the ham image is absent, skips build when present, then runs the gateway with `ham/hermes-agent:latest`
 - `build-image` runs `docker build --pull -t ham/hermes-agent:latest <context>`
-- Shell and profile create pass `--user` from the container's `HERMES_UID` / `HERMES_GID`
+- Create sets `--hostname <agent>.localhost` and `HAM_AGENT`
+- Shell and profile create pass `--user hermes`
 
 ## Out of scope
 
