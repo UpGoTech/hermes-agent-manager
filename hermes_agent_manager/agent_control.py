@@ -9,6 +9,7 @@ from hermes_agent_manager.archive import extract_archive, write_archive
 from hermes_agent_manager.docker_runner import DockerRunner
 from hermes_agent_manager.errors import InstallError
 from hermes_agent_manager.fm_site import FmSite
+from hermes_agent_manager.opsai_seed import install_opsai_seed
 from hermes_agent_manager.progress import Progress
 
 
@@ -78,6 +79,14 @@ class AgentControl:
     def shell(self, raw_name: str, site_name: str | None = None) -> None:
         agent = self._require_container(raw_name, site_name)
         self._docker.shell(agent.container_name)
+
+    def seed(self, raw_name: str, site_name: str | None = None) -> AgentName:
+        agent = self._require_running(raw_name, site_name)
+        self._progress.run(
+            f"Seeding OpsAi files in {agent.container_name}",
+            lambda: install_opsai_seed(self._docker, agent.container_name),
+        )
+        return agent
 
     def delete(self, raw_name: str, site_name: str | None = None) -> AgentName:
         self._docker.ensure_available()
@@ -254,6 +263,12 @@ class AgentControl:
         if self._docker.container_exists(agent.container_name):
             return agent
         raise InstallError(f"Container {agent.container_name} does not exist.")
+
+    def _require_running(self, raw_name: str, site_name: str | None = None) -> AgentName:
+        agent = self._require_container(raw_name, site_name)
+        if self._docker.status(agent.container_name) == "running":
+            return agent
+        raise InstallError(f"Container {agent.container_name} is not running.")
 
     def _require_directory(self, agent: AgentName) -> Path:
         directory = self._directory(agent)

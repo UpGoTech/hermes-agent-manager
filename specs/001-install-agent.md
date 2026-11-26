@@ -6,7 +6,7 @@ Tracer bullet: one command installs one named agent linked to an FM site.
 ham create my-agent --site venus.localhost --user alice
 ```
 
-FM site network binding is in [005-fm-bridge.md](005-fm-bridge.md). OpsAi gateway is in [006-opsai-remote-gateway.md](006-opsai-remote-gateway.md). Host data layout is in [004-frappe-agent-data.md](004-frappe-agent-data.md).
+FM site network binding is in [005-fm-bridge.md](005-fm-bridge.md). OpsAi gateway is in [006-opsai-remote-gateway.md](006-opsai-remote-gateway.md). Host data layout is in [004-frappe-agent-data.md](004-frappe-agent-data.md). Site-scoped bench/filesystem (`--developer`) is in [007-developer-mode.md](007-developer-mode.md).
 
 ## Behavior
 

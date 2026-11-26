@@ -93,6 +93,12 @@ class DockerRunner:
     def copy_to_container(self, container_name: str, source: str, destination: str) -> None:
         self._check(["docker", "cp", source, f"{container_name}:{destination}"])
 
+    def exec_as_root(self, container_name: str, command: list[str]) -> None:
+        self._check(["docker", "exec", "--user", "root", container_name, *command])
+
+    def exec_as_hermes(self, container_name: str, command: list[str]) -> None:
+        self._check(_exec_arguments(container_name) + command)
+
     def frappe_execute(
         self,
         container_name: str,
@@ -139,12 +145,21 @@ class DockerRunner:
         self._check(_frappe_exec_arguments(container_name, ["bench", *arguments]))
 
     def append_env(self, container_name: str, values: dict[str, str]) -> None:
-        lines = "".join(f"{key}={value}\n" for key, value in values.items())
-        script = (
-            "mkdir -p /opt/data && "
-            "touch /opt/data/.env && "
-            f"printf %s {shlex.quote(lines)} >> /opt/data/.env"
-        )
+        self.ensure_env(container_name, values)
+
+    def ensure_env(self, container_name: str, values: dict[str, str]) -> None:
+        if not values:
+            return
+        parts = [
+            "mkdir -p /opt/data",
+            "touch /opt/data/.env",
+        ]
+        for key, value in values.items():
+            line = f"{key}={value}"
+            parts.append(
+                f"grep -q {shlex.quote(f'^{key}=')} /opt/data/.env || "
+                f"printf %s\\\\n {shlex.quote(line)} >> /opt/data/.env"
+            )
         self._check(
             [
                 "docker",
@@ -154,7 +169,7 @@ class DockerRunner:
                 container_name,
                 "sh",
                 "-c",
-                script,
+                "; ".join(parts),
             ]
         )
 

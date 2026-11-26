@@ -2,6 +2,8 @@
 
 Tracer bullet: `ham create` requires an FM site and routes HTTP to that site the same way the host browser does — through Frappe Manager's `global-nginx-proxy` on the host.
 
+Bench + site workspace for developer agents is separate: [007-developer-mode.md](007-developer-mode.md).
+
 ```bash
 ham create stm --site venus.localhost --user alice
 ```

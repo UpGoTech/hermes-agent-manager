@@ -59,6 +59,7 @@ def test_install_builds_missing_image_then_runs_gateway(tmp_path: Path, monkeypa
     assert (marker / ".dashboard_password").read_text() == "dash-pass\n"
     assert (marker / ".dashboard_port").read_text() == f"{port}\n"
     assert (marker / ".volume").read_text() == "ham-venus-my-agent\n"
+    assert any(item[:2] == ["docker", "cp"] and "SOUL.md" in item[2] for item in commands.arguments)
 
 
 def test_install_bind_mounts_on_linux(tmp_path: Path, monkeypatch) -> None:
@@ -207,6 +208,7 @@ def test_reports_each_install_step(tmp_path: Path, monkeypatch) -> None:
         "Starting container HA-venus-my-agent",
         "Waiting for HA-venus-my-agent",
         "Creating profile my-agent in HA-venus-my-agent at /opt/data",
+        "Seeding OpsAi files in HA-venus-my-agent",
         "Joining network fm__venus_localhost__network",
         "Recording FM site venus.localhost",
     ]

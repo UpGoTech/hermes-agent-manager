@@ -148,6 +148,16 @@ def shell(
 
 
 @app.command()
+def seed(
+    agent_name: str = typer.Argument(help="Hermes profile name"),
+    site: str | None = _SITE_OPTION,
+) -> None:
+    """Install OpsAi SOUL/memory/erpnext skill into an existing agent."""
+    agent = _call(lambda progress: controller_factory(progress).seed(agent_name, site))
+    ConsoleProgress().done(f"Seeded OpsAi files in {agent.container_name}.")
+
+
+@app.command()
 def delete(
     agent_name: str = typer.Argument(help="Hermes profile name"),
     site: str | None = _SITE_OPTION,
