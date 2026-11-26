@@ -166,7 +166,7 @@ def seed(
     site: str | None = _SITE_OPTION,
     seed_ref: str | None = _SEED_REF_OPTION,
 ) -> None:
-    """Install OpsAi SOUL/memory/erpnext skill into an existing agent."""
+    """Install OpsAi SOUL and erpnext skill into an existing agent."""
     agent = _call(
         lambda progress: controller_factory(progress).seed(
             agent_name,

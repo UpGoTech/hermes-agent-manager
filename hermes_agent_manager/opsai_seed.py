@@ -15,8 +15,6 @@ from hermes_agent_manager.errors import InstallError
 
 SEED_FILES = (
     "SOUL.md",
-    "memories/MEMORY.md",
-    "memories/USER.md",
     "skills/erpnext/SKILL.md",
     "skills/erpnext/scripts/frappe.py",
 )
@@ -26,11 +24,6 @@ DEFAULT_SEED_REPO = "UpGoTech/hermes-agent-manager"
 SEED_PATH_IN_REPO = "hermes_agent_manager/seed"
 BUNDLED_REF = "bundled"
 LATEST_REF = "latest"
-
-_MEMORY_SETTINGS = (
-    ("memory.memory_enabled", "true"),
-    ("memory.user_profile_enabled", "true"),
-)
 
 _OpenUrl = Callable[[str], bytes]
 
@@ -44,7 +37,13 @@ def default_seed_cache() -> Path:
 
 
 def default_env_values() -> dict[str, str]:
-    return _parse_env_file(seed_root() / "env.example")
+    return {
+        "FRAPPE_URL": "http://your-frappe-internal-host",
+        "FRAPPE_URL_USER": "https://your-public-frappe-host",
+        "FRAPPE_API_KEY": "replace-me",
+        "FRAPPE_API_SECRET": "replace-me",
+        "FM_SITE": "your-site-name",
+    }
 
 
 def resolve_seed_ref(explicit: str | None = None) -> str:
@@ -101,12 +100,7 @@ def install_opsai_seed(
     )
     docker.exec_as_root(
         container_name,
-        [
-            "mkdir",
-            "-p",
-            f"{CONTAINER_DATA}/memories",
-            f"{CONTAINER_DATA}/skills/erpnext/scripts",
-        ],
+        ["mkdir", "-p", f"{CONTAINER_DATA}/skills/erpnext/scripts"],
     )
     for relative in SEED_FILES:
         docker.copy_to_container(
@@ -118,11 +112,6 @@ def install_opsai_seed(
         container_name,
         ["chmod", "+x", f"{CONTAINER_DATA}/skills/erpnext/scripts/frappe.py"],
     )
-    for key, value in _MEMORY_SETTINGS:
-        docker.exec_as_hermes(
-            container_name,
-            ["hermes", "config", "set", key, value],
-        )
     docker.ensure_env(container_name, {**default_env_values(), **(env or {})})
 
 
@@ -236,14 +225,3 @@ def _http_get(url: str) -> bytes:
         raise InstallError(f"HTTP {error.code} for {url}") from error
     except urllib.error.URLError as error:
         raise InstallError(f"Network error for {url}: {error.reason}") from error
-
-
-def _parse_env_file(path: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for raw in path.read_text().splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip()
-    return values

@@ -123,7 +123,6 @@ def _copy_seed_tree(destination: Path, soul: str) -> None:
             path.write_text(soul)
         else:
             path.write_bytes((packaged / relative).read_bytes())
-    (destination / "env.example").write_text((packaged / "env.example").read_text())
 
 
 def _seed_tarball(tmp_path: Path, soul: str) -> bytes:

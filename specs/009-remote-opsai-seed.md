@@ -35,7 +35,7 @@ Default repo: `UpGoTech/hermes-agent-manager` (override with `HAM_SEED_REPO`).
 
 ## Behavior vs 008
 
-File list, container paths, memory config, and `.env` merge rules stay as in [008-opsai-seed.md](008-opsai-seed.md). Only the **source tree** changes (remote cache vs package).
+Seeded file list and `.env` merge rules stay as in [008-opsai-seed.md](008-opsai-seed.md) (`SOUL.md` + skills only; `.env` defaults stay in HAM). Only the **source tree** for those files changes (remote cache vs package).
 
 ## Out of scope
 

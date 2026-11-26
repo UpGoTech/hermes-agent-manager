@@ -35,7 +35,7 @@ Requires Python 3.11 or newer, [uv](https://docs.astral.sh/uv/), Docker, and at 
 From the released tag (anyone):
 
 ```bash
-uv tool install git+https://github.com/UpGoTech/hermes-agent-manager@v1.0.1
+uv tool install git+https://github.com/UpGoTech/hermes-agent-manager@v1.0.2
 ham build-image
 ```
 
@@ -67,7 +67,7 @@ This will:
 3. Create `~/frappe/frappe-agent/venus.localhost/stm/` (markers + Hermes home)
 4. Start `HA-venus-stm` with that directory bind-mounted at `/opt/data`
 5. Create Hermes profile `stm`
-6. Seed OpsAi `SOUL.md`, memories, and `erpnext` skill into `/opt/data` (latest `opsai-seed-v*` tag, or packaged fallback)
+6. Seed OpsAi `SOUL.md` and `erpnext` skill into `/opt/data` (latest `opsai-seed-v*` tag, or packaged fallback); fill missing `.env` keys from HAM defaults
 7. Join site network as `venus-stm` and print OpsAi credentials
 
 ### OpsAi Settings (Desk Test)
@@ -108,7 +108,7 @@ Browser gateway `http://127.0.0.1:<port>` is for local browsers only.
 | `ham stop <agent-name>` | Stop the container |
 | `ham restart <agent-name>` | Restart the container |
 | `ham shell <agent-name>` | Open a `hermes` user shell at `/opt/data` |
-| `ham seed <agent-name>` | Install OpsAi SOUL/memory/erpnext skill into a running agent |
+| `ham seed <agent-name>` | Install OpsAi SOUL + erpnext skill into a running agent |
 | `ham seed <agent-name> --seed-ref opsai-seed-v1.0.0` | Seed a pinned GitHub tag (also on `create`; `bundled` / `latest` allowed) |
 | `ham delete <agent-name>` | Remove container and data directory |
 | `ham backup <agent-name>` | Archive the data directory |

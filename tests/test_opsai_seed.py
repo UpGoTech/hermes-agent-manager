@@ -14,10 +14,11 @@ def test_seed_root_contains_required_files() -> None:
     root = seed_root()
     for relative in SEED_FILES:
         assert (root / relative).is_file(), relative
-    assert (root / "env.example").is_file()
+    assert not (root / "env.example").exists()
+    assert not (root / "memories").exists()
 
 
-def test_default_env_values_match_example() -> None:
+def test_default_env_values_are_static() -> None:
     values = default_env_values()
     assert values["FRAPPE_URL"]
     assert values["FRAPPE_URL_USER"]
@@ -26,7 +27,7 @@ def test_default_env_values_match_example() -> None:
     assert values["FM_SITE"]
 
 
-def test_install_opsai_seed_copies_files_and_enables_memory() -> None:
+def test_install_opsai_seed_copies_soul_and_skills() -> None:
     commands = FakeCommands()
     docker = DockerRunner(commands, available=lambda: True, sleep=lambda _seconds: None)
 
@@ -41,7 +42,6 @@ def test_install_opsai_seed_copies_files_and_enables_memory() -> None:
         "HA-venus-my-agent",
         "mkdir",
         "-p",
-        f"{CONTAINER_DATA}/memories",
         f"{CONTAINER_DATA}/skills/erpnext/scripts",
     ] in commands.arguments
     for relative in SEED_FILES:
@@ -61,18 +61,7 @@ def test_install_opsai_seed_copies_files_and_enables_memory() -> None:
         "+x",
         f"{CONTAINER_DATA}/skills/erpnext/scripts/frappe.py",
     ] in commands.arguments
-    assert any(
-        item[:2] == ["docker", "exec"]
-        and "hermes" in item
-        and "config" in item
-        and "memory.memory_enabled" in item
-        for item in commands.arguments
-    )
-    assert any(
-        item[:2] == ["docker", "exec"]
-        and "memory.user_profile_enabled" in item
-        for item in commands.arguments
-    )
+    assert not any("memory.memory_enabled" in item for item in commands.arguments)
     assert any(
         item[:2] == ["docker", "exec"]
         and any("FRAPPE_API_KEY=" in part for part in item)

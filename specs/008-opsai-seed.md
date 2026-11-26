@@ -2,19 +2,17 @@
 
 Tracer: every `ham create` installs OpsAi Hermes home files into `/opt/data`, and `ham seed` re-applies them on an existing agent.
 
-## Files (packaged under `hermes_agent_manager/seed/`)
+## Files (under `hermes_agent_manager/seed/`, also via remote tags)
 
 | Source | Destination in container |
 |--------|--------------------------|
 | `SOUL.md` | `/opt/data/SOUL.md` |
-| `memories/MEMORY.md` | `/opt/data/memories/MEMORY.md` |
-| `memories/USER.md` | `/opt/data/memories/USER.md` |
 | `skills/erpnext/SKILL.md` | `/opt/data/skills/erpnext/SKILL.md` |
 | `skills/erpnext/scripts/frappe.py` | `/opt/data/skills/erpnext/scripts/frappe.py` |
 
-Also enables `memory.memory_enabled` and `memory.user_profile_enabled` via `hermes config set`.
+Memories are not seeded. Default `.env` keys come from `default_env_values()` in the HAM tool (not from the seed tree).
 
-## `.env` keys (from `seed/env.example`)
+## `.env` keys (static in HAM)
 
 Appended to `/opt/data/.env` only when the key is missing:
 
@@ -26,13 +24,14 @@ Appended to `/opt/data/.env` only when the key is missing:
 
 1. `ham create` copies those files into the running container after the profile exists (works for bind mount and named volume).
 2. `ham seed <agent-name> [--site <fm-site>]` does the same for an older agent whose container is running.
-3. Overwrites existing SOUL / MEMORY / USER / erpnext skill files. No backup (operator can `ham backup` first).
+3. Overwrites existing SOUL / erpnext skill files. No backup (operator can `ham backup` first).
 4. Never overwrites an existing `.env` key.
 
 ## Out of scope
 
 - Shipping `install.sh` / zip README as the install path
 - Auto-provisioning Frappe API tokens
+- Seeding `memories/` or shipping `env.example` in the seed pack
 
 ## Related
 
