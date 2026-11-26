@@ -1,5 +1,6 @@
 import os
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import NoReturn
 
@@ -18,7 +19,39 @@ from hermes_agent_manager.fm_site import frappe_manager_home
 from hermes_agent_manager.installer import AgentInstaller
 from hermes_agent_manager.progress import ConsoleProgress, Progress
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+def package_version() -> str:
+    try:
+        return metadata.version("hermes-agent-manager")
+    except metadata.PackageNotFoundError:
+        return "0.0.0+dev"
+
+
+def _version_option(value: bool) -> None:
+    if value:
+        typer.echo(f"ham {package_version()}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="Show version and exit.",
+        callback=_version_option,
+        is_eager=True,
+    ),
+) -> None:
+    """Install and manage Hermes agents linked to Frappe Manager sites."""
+
 
 _SITE_OPTION = typer.Option(
     None,

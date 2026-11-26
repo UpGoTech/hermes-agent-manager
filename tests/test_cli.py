@@ -17,6 +17,42 @@ from hermes_agent_manager.errors import InstallError
 from hermes_agent_manager.installer import InstallResult
 
 
+def test_cli_version() -> None:
+    result = CliRunner().invoke(build_app(), ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip().startswith("ham ")
+
+
+def test_cli_help_lists_commands() -> None:
+    result = CliRunner().invoke(build_app(), ["--help"])
+
+    assert result.exit_code == 0
+    assert "--version" in result.output
+    for command in (
+        "create",
+        "build-image",
+        "list",
+        "info",
+        "start",
+        "stop",
+        "restart",
+        "shell",
+        "seed",
+        "delete",
+        "backup",
+        "restore",
+    ):
+        assert command in result.output
+
+
+def test_cli_command_help() -> None:
+    for command in ("create", "seed", "list", "info", "delete"):
+        result = CliRunner().invoke(build_app(), [command, "--help"])
+        assert result.exit_code == 0, command
+        assert "--help" in result.output or "Show this message" in result.output
+
+
 def test_cli_prints_install_errors(monkeypatch) -> None:
     class BrokenInstaller:
         def install(self, _name: str, *_args, **_kwargs) -> None:
