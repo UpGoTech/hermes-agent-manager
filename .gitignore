@@ -7,3 +7,6 @@ dist/
 uv.lock
 .agents/
 ham-*/
+*.zip
+skills-lock.json
+

@@ -1,6 +1,6 @@
 [project]
 name = "hermes-agent-manager"
-version = "1.0.1"
+version = "1.0.2"
 description = "CLI to install and manage Hermes agents linked to Frappe Manager sites"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,7 +30,6 @@ namespaces = false
 [tool.setuptools.package-data]
 "hermes_agent_manager" = [
   "image/*",
-  "seed/**/*",
   "frappe_app/ham_bridge/setup.py",
   "frappe_app/ham_bridge/MANIFEST.in",
   "frappe_app/ham_bridge/ham_bridge/**/*",

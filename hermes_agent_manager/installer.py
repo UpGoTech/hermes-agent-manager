@@ -46,13 +46,14 @@ class AgentInstaller:
         raw_name: str,
         site_name: str | None = None,
         dashboard_user: str | None = None,
+        seed_ref: str | None = None,
     ) -> InstallResult:
         site = pick_site(site_name, self._interactive, self._fm_home)
         agent = AgentName.parse(raw_name, site.name)
         user = parse_dashboard_user(dashboard_user, self._interactive)
         self._ensure_ready(agent, site)
         password = new_dashboard_password()
-        self._start(agent, site, user, password)
+        self._start(agent, site, user, password, seed_ref=seed_ref)
         return InstallResult(
             agent,
             user,
@@ -103,6 +104,7 @@ class AgentInstaller:
         site: FmSite,
         dashboard_user: str,
         dashboard_password: str,
+        seed_ref: str | None = None,
     ) -> None:
         directory = self._directory(agent)
         self._progress.run(f"Ensuring image {IMAGE}", lambda: self._docker.ensure_image(IMAGE))
@@ -115,7 +117,7 @@ class AgentInstaller:
             f"Creating {directory}",
             lambda: self._prepare_directory(agent, site, dashboard_user, dashboard_password),
         )
-        self._launch(agent, site, dashboard_user, dashboard_password)
+        self._launch(agent, site, dashboard_user, dashboard_password, seed_ref)
 
     def _prepare_directory(
         self,
@@ -144,6 +146,7 @@ class AgentInstaller:
         site: FmSite,
         dashboard_user: str,
         dashboard_password: str,
+        seed_ref: str | None = None,
     ) -> None:
         self._progress.run(
             f"Starting container {agent.container_name}",
@@ -164,6 +167,7 @@ class AgentInstaller:
                     "FRAPPE_URL": f"http://{site.name}",
                     "FRAPPE_URL_USER": f"http://{site.name}",
                 },
+                seed_ref=seed_ref,
             ),
         )
         self._progress.run(

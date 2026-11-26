@@ -1,5 +1,6 @@
 import os
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import NoReturn
 
@@ -18,7 +19,39 @@ from hermes_agent_manager.fm_site import frappe_manager_home
 from hermes_agent_manager.installer import AgentInstaller
 from hermes_agent_manager.progress import ConsoleProgress, Progress
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+def package_version() -> str:
+    try:
+        return metadata.version("hermes-agent-manager")
+    except metadata.PackageNotFoundError:
+        return "0.0.0+dev"
+
+
+def _version_option(value: bool) -> None:
+    if value:
+        typer.echo(f"ham {package_version()}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="Show version and exit.",
+        callback=_version_option,
+        is_eager=True,
+    ),
+) -> None:
+    """Install and manage Hermes agents linked to Frappe Manager sites."""
+
 
 _SITE_OPTION = typer.Option(
     None,
@@ -44,6 +77,13 @@ def controller_factory(progress: Progress) -> AgentControl:
     return AgentControl(DockerRunner(), frappe_agent_root(), progress)
 
 
+_SEED_REF_OPTION = typer.Option(
+    None,
+    "--seed-ref",
+    help="OpsAi seed ref: opsai-seed-v* tag, branch, sha, or latest",
+)
+
+
 @app.command()
 def create(
     agent_name: str = typer.Argument(help="Hermes profile name"),
@@ -58,11 +98,17 @@ def create(
         "-u",
         help="Hermes dashboard / OpsAi username (prompted when omitted on a TTY)",
     ),
+    seed_ref: str | None = _SEED_REF_OPTION,
 ) -> None:
     """Install an agent container linked to an FM site."""
     progress = ConsoleProgress()
     try:
-        result = installer_factory(progress).install(agent_name, site, user)
+        result = installer_factory(progress).install(
+            agent_name,
+            site,
+            user,
+            seed_ref=seed_ref,
+        )
     except InstallError as error:
         _fail(progress, error)
     print_create_summary(
@@ -151,9 +197,16 @@ def shell(
 def seed(
     agent_name: str = typer.Argument(help="Hermes profile name"),
     site: str | None = _SITE_OPTION,
+    seed_ref: str | None = _SEED_REF_OPTION,
 ) -> None:
-    """Install OpsAi SOUL/memory/erpnext skill into an existing agent."""
-    agent = _call(lambda progress: controller_factory(progress).seed(agent_name, site))
+    """Install OpsAi SOUL and erpnext skill into an existing agent."""
+    agent = _call(
+        lambda progress: controller_factory(progress).seed(
+            agent_name,
+            site,
+            seed_ref=seed_ref,
+        )
+    )
     ConsoleProgress().done(f"Seeded OpsAi files in {agent.container_name}.")
 
 

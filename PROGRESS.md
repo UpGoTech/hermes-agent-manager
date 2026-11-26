@@ -1,6 +1,6 @@
 # Progress
 
-Specs: [001](specs/001-install-agent.md), [002](specs/002-agent-commands.md), [003](specs/003-workstation-image.md), [004](specs/004-frappe-agent-data.md), [005](specs/005-fm-bridge.md), [006](specs/006-opsai-remote-gateway.md), [007](specs/007-developer-mode.md), [008](specs/008-opsai-seed.md)
+Specs: [001](specs/001-install-agent.md), [002](specs/002-agent-commands.md), [003](specs/003-workstation-image.md), [004](specs/004-frappe-agent-data.md), [005](specs/005-fm-bridge.md), [006](specs/006-opsai-remote-gateway.md), [007](specs/007-developer-mode.md), [008](specs/008-opsai-seed.md), [009](specs/009-remote-opsai-seed.md)
 
 | Phase | Status |
 |-------|--------|
@@ -22,4 +22,5 @@ Specs: [001](specs/001-install-agent.md), [002](specs/002-agent-commands.md), [0
 | Container `HA-{site-slug}-{agent}` | Done (beta) |
 | `ham info` FM-style Rich table | Done (beta) |
 | Developer mode (`--developer`, site workspace + bench sidecar) | Planned |
-| OpsAi seed on create (`SOUL` / memory / erpnext skill) + `ham seed` | Done (beta) |
+| OpsAi seed on create (`SOUL` + erpnext skill) + `ham seed` | Done (beta) |
+| Remote OpsAi seed via `opsai-seed-v*` tags (same repo) | Done (beta) |

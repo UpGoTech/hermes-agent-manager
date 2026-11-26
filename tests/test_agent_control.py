@@ -110,8 +110,11 @@ def test_seed_copies_opsai_files_into_running_container(tmp_path: Path) -> None:
     agent = _control(commands, data_root).seed("my-agent")
 
     assert agent.container_name == "HA-venus-my-agent"
-    assert any(item[:2] == ["docker", "cp"] for item in commands.arguments)
-    assert any("memory.memory_enabled" in item for item in commands.arguments)
+    assert any(item[:2] == ["docker", "cp"] and "SOUL.md" in item[2] for item in commands.arguments)
+    assert any(
+        item[:2] == ["docker", "exec"] and any("FRAPPE_API_KEY=" in part for part in item)
+        for item in commands.arguments
+    )
 
 
 def test_seed_rejects_stopped_container(tmp_path: Path) -> None:
