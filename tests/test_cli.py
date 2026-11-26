@@ -37,6 +37,23 @@ def test_cli_prints_install_errors(monkeypatch) -> None:
     assert "nope" in result.output
 
 
+def test_cli_seed_reports_success(monkeypatch) -> None:
+    agent = AgentName.parse("stm", "venus.localhost")
+
+    class FakeControl:
+        def seed(self, _name: str, _site: str | None = None):
+            return agent
+
+    monkeypatch.setattr(
+        "hermes_agent_manager.cli.controller_factory",
+        lambda _progress: FakeControl(),
+    )
+    result = CliRunner().invoke(build_app(), ["seed", "stm", "--site", "venus.localhost"])
+
+    assert result.exit_code == 0
+    assert "Seeded OpsAi files in HA-venus-stm" in result.output
+
+
 def test_cli_prints_create_summary(monkeypatch) -> None:
     agent = AgentName.parse("stm", "venus.localhost")
 

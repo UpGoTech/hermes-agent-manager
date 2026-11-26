@@ -101,6 +101,30 @@ def test_shell_runs_inside_the_container(tmp_path: Path) -> None:
     ]]
 
 
+def test_seed_copies_opsai_files_into_running_container(tmp_path: Path) -> None:
+    data_root = tmp_path / "frappe-agent"
+    _mark(data_root)
+    commands = FakeCommands()
+    commands.existing.add("HA-venus-my-agent")
+
+    agent = _control(commands, data_root).seed("my-agent")
+
+    assert agent.container_name == "HA-venus-my-agent"
+    assert any(item[:2] == ["docker", "cp"] for item in commands.arguments)
+    assert any("memory.memory_enabled" in item for item in commands.arguments)
+
+
+def test_seed_rejects_stopped_container(tmp_path: Path) -> None:
+    data_root = tmp_path / "frappe-agent"
+    _mark(data_root)
+    commands = FakeCommands()
+    commands.existing.add("HA-venus-my-agent")
+    commands.status = "exited"
+
+    with pytest.raises(InstallError, match="is not running"):
+        _control(commands, data_root).seed("my-agent")
+
+
 def test_delete_removes_container_volume_and_data_directory(tmp_path: Path) -> None:
     data_root = tmp_path / "frappe-agent"
     directory = _mark(data_root, volume="ham-venus-my-agent")

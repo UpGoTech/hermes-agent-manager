@@ -9,6 +9,7 @@ from hermes_agent_manager.dashboard_user import parse_dashboard_user
 from hermes_agent_manager.docker_runner import CONTAINER_DATA, IMAGE, DockerRunner
 from hermes_agent_manager.errors import InstallError
 from hermes_agent_manager.fm_site import FmSite, pick_site
+from hermes_agent_manager.opsai_seed import install_opsai_seed
 from hermes_agent_manager.progress import Progress
 from hermes_agent_manager.storage import needs_named_volume
 
@@ -154,6 +155,18 @@ class AgentInstaller:
         )
         self._open_profile(agent)
         self._progress.run(
+            f"Seeding OpsAi files in {agent.container_name}",
+            lambda: install_opsai_seed(
+                self._docker,
+                agent.container_name,
+                {
+                    "FM_SITE": site.name,
+                    "FRAPPE_URL": f"http://{site.name}",
+                    "FRAPPE_URL_USER": f"http://{site.name}",
+                },
+            ),
+        )
+        self._progress.run(
             f"Joining network {site.network_name}",
             lambda: self._docker.connect_network(
                 site.network_name,
@@ -163,11 +176,12 @@ class AgentInstaller:
         )
         self._progress.run(
             f"Recording FM site {site.name}",
-            lambda: self._docker.append_env(
+            lambda: self._docker.ensure_env(
                 agent.container_name,
                 {
                     "FM_SITE": site.name,
                     "FRAPPE_URL": f"http://{site.name}",
+                    "FRAPPE_URL_USER": f"http://{site.name}",
                     "HERMES_GATEWAY_URL": agent.gateway_url,
                     "HERMES_BROWSER_GATEWAY_URL": agent.browser_gateway_url,
                     "HERMES_DASHBOARD_BASIC_AUTH_USERNAME": dashboard_user,
