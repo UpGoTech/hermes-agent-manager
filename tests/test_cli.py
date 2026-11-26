@@ -19,12 +19,7 @@ from hermes_agent_manager.installer import InstallResult
 
 def test_cli_prints_install_errors(monkeypatch) -> None:
     class BrokenInstaller:
-        def install(
-            self,
-            _name: str,
-            _site: str | None = None,
-            _user: str | None = None,
-        ) -> None:
+        def install(self, _name: str, *_args, **_kwargs) -> None:
             raise InstallError("nope")
 
     monkeypatch.setattr("hermes_agent_manager.cli.installer_factory", lambda _progress: BrokenInstaller())
@@ -39,26 +34,37 @@ def test_cli_prints_install_errors(monkeypatch) -> None:
 
 def test_cli_seed_reports_success(monkeypatch) -> None:
     agent = AgentName.parse("stm", "venus.localhost")
+    seen: dict[str, str | None] = {}
 
     class FakeControl:
-        def seed(self, _name: str, _site: str | None = None):
+        def seed(
+            self,
+            _name: str,
+            _site: str | None = None,
+            seed_ref: str | None = None,
+        ):
+            seen["seed_ref"] = seed_ref
             return agent
 
     monkeypatch.setattr(
         "hermes_agent_manager.cli.controller_factory",
         lambda _progress: FakeControl(),
     )
-    result = CliRunner().invoke(build_app(), ["seed", "stm", "--site", "venus.localhost"])
+    result = CliRunner().invoke(
+        build_app(),
+        ["seed", "stm", "--site", "venus.localhost", "--seed-ref", "opsai-seed-v1.0.0"],
+    )
 
     assert result.exit_code == 0
     assert "Seeded OpsAi files in HA-venus-stm" in result.output
+    assert seen["seed_ref"] == "opsai-seed-v1.0.0"
 
 
 def test_cli_prints_create_summary(monkeypatch) -> None:
     agent = AgentName.parse("stm", "venus.localhost")
 
     class FakeInstaller:
-        def install(self, _name: str, _site: str | None = None, _user: str | None = None):
+        def install(self, _name: str, *_args, **_kwargs):
             return InstallResult(agent, "alice", "secret", Path("/tmp/stm"))
 
     monkeypatch.setattr(

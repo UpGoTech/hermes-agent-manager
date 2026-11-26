@@ -67,7 +67,7 @@ This will:
 3. Create `~/frappe/frappe-agent/venus.localhost/stm/` (markers + Hermes home)
 4. Start `HA-venus-stm` with that directory bind-mounted at `/opt/data`
 5. Create Hermes profile `stm`
-6. Seed OpsAi `SOUL.md`, memories, and `erpnext` skill into `/opt/data`
+6. Seed OpsAi `SOUL.md`, memories, and `erpnext` skill into `/opt/data` (latest `opsai-seed-v*` tag, or packaged fallback)
 7. Join site network as `venus-stm` and print OpsAi credentials
 
 ### OpsAi Settings (Desk Test)
@@ -109,9 +109,21 @@ Browser gateway `http://127.0.0.1:<port>` is for local browsers only.
 | `ham restart <agent-name>` | Restart the container |
 | `ham shell <agent-name>` | Open a `hermes` user shell at `/opt/data` |
 | `ham seed <agent-name>` | Install OpsAi SOUL/memory/erpnext skill into a running agent |
+| `ham seed <agent-name> --seed-ref opsai-seed-v1.0.0` | Seed a pinned GitHub tag (also on `create`; `bundled` / `latest` allowed) |
 | `ham delete <agent-name>` | Remove container and data directory |
 | `ham backup <agent-name>` | Archive the data directory |
 | `ham restore <agent-name> <archive>` | Restore the data directory from an archive |
+
+## OpsAi seed tags
+
+Seed content lives in `hermes_agent_manager/seed/`. Publish content without a HAM release:
+
+```bash
+git tag opsai-seed-v1.0.0
+git push origin opsai-seed-v1.0.0
+```
+
+`ham create` / `ham seed` default to the newest `opsai-seed-v*` tag (cache in `~/.ham/seed-cache/`). App tags stay `v*`. Use `--seed-ref bundled` offline, or pin an older seed tag when needed. Override repo with `HAM_SEED_REPO`.
 
 ## Migration
 

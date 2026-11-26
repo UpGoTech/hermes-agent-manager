@@ -44,6 +44,13 @@ def controller_factory(progress: Progress) -> AgentControl:
     return AgentControl(DockerRunner(), frappe_agent_root(), progress)
 
 
+_SEED_REF_OPTION = typer.Option(
+    None,
+    "--seed-ref",
+    help="OpsAi seed ref: opsai-seed-v*, branch, sha, latest, or bundled",
+)
+
+
 @app.command()
 def create(
     agent_name: str = typer.Argument(help="Hermes profile name"),
@@ -58,11 +65,17 @@ def create(
         "-u",
         help="Hermes dashboard / OpsAi username (prompted when omitted on a TTY)",
     ),
+    seed_ref: str | None = _SEED_REF_OPTION,
 ) -> None:
     """Install an agent container linked to an FM site."""
     progress = ConsoleProgress()
     try:
-        result = installer_factory(progress).install(agent_name, site, user)
+        result = installer_factory(progress).install(
+            agent_name,
+            site,
+            user,
+            seed_ref=seed_ref,
+        )
     except InstallError as error:
         _fail(progress, error)
     print_create_summary(
@@ -151,9 +164,16 @@ def shell(
 def seed(
     agent_name: str = typer.Argument(help="Hermes profile name"),
     site: str | None = _SITE_OPTION,
+    seed_ref: str | None = _SEED_REF_OPTION,
 ) -> None:
     """Install OpsAi SOUL/memory/erpnext skill into an existing agent."""
-    agent = _call(lambda progress: controller_factory(progress).seed(agent_name, site))
+    agent = _call(
+        lambda progress: controller_factory(progress).seed(
+            agent_name,
+            site,
+            seed_ref=seed_ref,
+        )
+    )
     ConsoleProgress().done(f"Seeded OpsAi files in {agent.container_name}.")
 
 

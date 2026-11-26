@@ -33,3 +33,7 @@ Appended to `/opt/data/.env` only when the key is missing:
 
 - Shipping `install.sh` / zip README as the install path
 - Auto-provisioning Frappe API tokens
+
+## Related
+
+Remote resolution via `opsai-seed-v*` tags: [009-remote-opsai-seed.md](009-remote-opsai-seed.md).

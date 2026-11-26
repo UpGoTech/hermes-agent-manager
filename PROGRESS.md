@@ -23,4 +23,4 @@ Specs: [001](specs/001-install-agent.md), [002](specs/002-agent-commands.md), [0
 | `ham info` FM-style Rich table | Done (beta) |
 | Developer mode (`--developer`, site workspace + bench sidecar) | Planned |
 | OpsAi seed on create (`SOUL` / memory / erpnext skill) + `ham seed` | Done (beta) |
-| Remote OpsAi seed via `opsai-seed-v*` tags (same repo) | Spec |
+| Remote OpsAi seed via `opsai-seed-v*` tags (same repo) | Done (beta) |

@@ -80,11 +80,20 @@ class AgentControl:
         agent = self._require_container(raw_name, site_name)
         self._docker.shell(agent.container_name)
 
-    def seed(self, raw_name: str, site_name: str | None = None) -> AgentName:
+    def seed(
+        self,
+        raw_name: str,
+        site_name: str | None = None,
+        seed_ref: str | None = None,
+    ) -> AgentName:
         agent = self._require_running(raw_name, site_name)
         self._progress.run(
             f"Seeding OpsAi files in {agent.container_name}",
-            lambda: install_opsai_seed(self._docker, agent.container_name),
+            lambda: install_opsai_seed(
+                self._docker,
+                agent.container_name,
+                seed_ref=seed_ref,
+            ),
         )
         return agent
 
