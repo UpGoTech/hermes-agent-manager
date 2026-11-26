@@ -2,7 +2,7 @@
 
 Tracer: every `ham create` installs OpsAi Hermes home files into `/opt/data`, and `ham seed` re-applies them on an existing agent.
 
-## Files (under `hermes_agent_manager/seed/`, also via remote tags)
+## Files (repo `opsai-seed/`, fetched via GitHub seed tags)
 
 | Source | Destination in container |
 |--------|--------------------------|
@@ -10,7 +10,7 @@ Tracer: every `ham create` installs OpsAi Hermes home files into `/opt/data`, an
 | `skills/erpnext/SKILL.md` | `/opt/data/skills/erpnext/SKILL.md` |
 | `skills/erpnext/scripts/frappe.py` | `/opt/data/skills/erpnext/scripts/frappe.py` |
 
-Memories are not seeded. Default `.env` keys come from `default_env_values()` in the HAM tool (not from the seed tree).
+Not packaged inside the ham wheel. Default `.env` keys come from `default_env_values()` in HAM.
 
 ## `.env` keys (static in HAM)
 
@@ -22,17 +22,16 @@ Appended to `/opt/data/.env` only when the key is missing:
 
 ## Behavior
 
-1. `ham create` copies those files into the running container after the profile exists (works for bind mount and named volume).
-2. `ham seed <agent-name> [--site <fm-site>]` does the same for an older agent whose container is running.
-3. Overwrites existing SOUL / erpnext skill files. No backup (operator can `ham backup` first).
-4. Never overwrites an existing `.env` key.
+1. `ham create` / `ham seed` fetch the seed pack from GitHub (`opsai-seed-v*`), then copy into the running container.
+2. Overwrites existing SOUL / erpnext skill files. No backup (operator can `ham backup` first).
+3. Never overwrites an existing `.env` key.
 
 ## Out of scope
 
-- Shipping `install.sh` / zip README as the install path
+- Shipping seed files inside the ham package / `--seed-ref bundled`
 - Auto-provisioning Frappe API tokens
-- Seeding `memories/` or shipping `env.example` in the seed pack
+- Seeding `memories/`
 
 ## Related
 
-Remote resolution via `opsai-seed-v*` tags: [009-remote-opsai-seed.md](009-remote-opsai-seed.md).
+Remote resolution: [009-remote-opsai-seed.md](009-remote-opsai-seed.md).

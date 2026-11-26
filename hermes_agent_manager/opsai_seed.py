@@ -21,15 +21,12 @@ SEED_FILES = (
 
 SEED_TAG_PREFIX = "opsai-seed-v"
 DEFAULT_SEED_REPO = "UpGoTech/hermes-agent-manager"
-SEED_PATH_IN_REPO = "hermes_agent_manager/seed"
-BUNDLED_REF = "bundled"
+SEED_PATH_IN_REPO = "opsai-seed"
+# Older tags used hermes_agent_manager/seed before the pack moved to repo root.
+_LEGACY_SEED_PATH = "hermes_agent_manager/seed"
 LATEST_REF = "latest"
 
 _OpenUrl = Callable[[str], bytes]
-
-
-def seed_root() -> Path:
-    return Path(__file__).resolve().parent / "seed"
 
 
 def default_seed_cache() -> Path:
@@ -64,8 +61,6 @@ def resolve_seed_root(
     open_url: _OpenUrl | None = None,
 ) -> Path:
     requested = resolve_seed_ref(ref)
-    if requested == BUNDLED_REF:
-        return seed_root()
     opener = open_url or _http_get
     repository = repo or resolve_seed_repo()
     cache = cache_dir or default_seed_cache()
@@ -77,11 +72,9 @@ def resolve_seed_root(
         )
         return _fetch_seed_tree(repository, resolved, cache, opener)
     except Exception as error:
-        if requested != LATEST_REF and requested != BUNDLED_REF:
-            raise InstallError(
-                f"Could not fetch OpsAi seed ref {requested!r}: {error}"
-            ) from error
-        return seed_root()
+        raise InstallError(
+            f"Could not fetch OpsAi seed ref {requested!r}: {error}"
+        ) from error
 
 
 def install_opsai_seed(
@@ -92,8 +85,9 @@ def install_opsai_seed(
     *,
     cache_dir: Path | None = None,
     open_url: _OpenUrl | None = None,
+    seed_root: Path | None = None,
 ) -> None:
-    root = resolve_seed_root(
+    root = seed_root or resolve_seed_root(
         seed_ref,
         cache_dir=cache_dir,
         open_url=open_url,
@@ -162,23 +156,34 @@ def _extract_seed_from_tarball(archive: bytes) -> Path:
     staging = Path(tempfile.mkdtemp(prefix="ham-seed-"))
     try:
         with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+            path_in_repo = _seed_path_in_archive(tar)
             members = [
                 member
                 for member in tar.getmembers()
-                if _safe_tar_member(member) and SEED_PATH_IN_REPO in member.name
+                if _safe_tar_member(member) and path_in_repo in member.name
             ]
             if not members:
-                raise InstallError(f"Tarball has no {SEED_PATH_IN_REPO}/")
+                raise InstallError(f"Tarball has no {path_in_repo}/")
             tar.extractall(staging, members=members)
-        matches = list(staging.glob(f"*/{SEED_PATH_IN_REPO}"))
+        matches = list(staging.glob(f"*/{path_in_repo}"))
         if not matches:
-            raise InstallError(f"Could not locate {SEED_PATH_IN_REPO} in archive")
+            raise InstallError(f"Could not locate {path_in_repo} in archive")
         out = Path(tempfile.mkdtemp(prefix="ham-seed-out-"))
         shutil.rmtree(out)
         shutil.copytree(matches[0], out)
         return out
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+
+
+def _seed_path_in_archive(tar: tarfile.TarFile) -> str:
+    names = [member.name.replace("\\", "/") for member in tar.getmembers()]
+    for path in (SEED_PATH_IN_REPO, _LEGACY_SEED_PATH):
+        if any(f"/{path}/" in f"/{name}/" or name.endswith(f"/{path}") for name in names):
+            return path
+    raise InstallError(
+        f"Tarball has no {SEED_PATH_IN_REPO}/ (or legacy {_LEGACY_SEED_PATH}/)"
+    )
 
 
 def _safe_tar_member(member: tarfile.TarInfo) -> bool:

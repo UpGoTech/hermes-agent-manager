@@ -47,7 +47,7 @@ def controller_factory(progress: Progress) -> AgentControl:
 _SEED_REF_OPTION = typer.Option(
     None,
     "--seed-ref",
-    help="OpsAi seed ref: opsai-seed-v*, branch, sha, latest, or bundled",
+    help="OpsAi seed ref: opsai-seed-v* tag, branch, sha, or latest",
 )
 
 

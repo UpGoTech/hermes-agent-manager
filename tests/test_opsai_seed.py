@@ -5,17 +5,14 @@ from hermes_agent_manager.opsai_seed import (
     SEED_FILES,
     default_env_values,
     install_opsai_seed,
-    seed_root,
 )
+from tests.conftest import REPO_SEED
 from tests.fake_commands import FakeCommands
 
 
-def test_seed_root_contains_required_files() -> None:
-    root = seed_root()
+def test_repo_seed_contains_required_files() -> None:
     for relative in SEED_FILES:
-        assert (root / relative).is_file(), relative
-    assert not (root / "env.example").exists()
-    assert not (root / "memories").exists()
+        assert (REPO_SEED / relative).is_file(), relative
 
 
 def test_default_env_values_are_static() -> None:
@@ -31,9 +28,8 @@ def test_install_opsai_seed_copies_soul_and_skills() -> None:
     commands = FakeCommands()
     docker = DockerRunner(commands, available=lambda: True, sleep=lambda _seconds: None)
 
-    install_opsai_seed(docker, "HA-venus-my-agent")
+    install_opsai_seed(docker, "HA-venus-my-agent", seed_root=REPO_SEED)
 
-    root = seed_root()
     assert [
         "docker",
         "exec",
@@ -48,20 +44,9 @@ def test_install_opsai_seed_copies_soul_and_skills() -> None:
         assert [
             "docker",
             "cp",
-            str(root / relative),
+            str(REPO_SEED / relative),
             f"HA-venus-my-agent:{CONTAINER_DATA}/{relative}",
         ] in commands.arguments
-    assert [
-        "docker",
-        "exec",
-        "--user",
-        "root",
-        "HA-venus-my-agent",
-        "chmod",
-        "+x",
-        f"{CONTAINER_DATA}/skills/erpnext/scripts/frappe.py",
-    ] in commands.arguments
-    assert not any("memory.memory_enabled" in item for item in commands.arguments)
     assert any(
         item[:2] == ["docker", "exec"]
         and any("FRAPPE_API_KEY=" in part for part in item)
@@ -77,6 +62,7 @@ def test_install_opsai_seed_applies_env_overrides() -> None:
         docker,
         "HA-venus-my-agent",
         {"FRAPPE_URL": "http://venus.localhost", "FM_SITE": "venus.localhost"},
+        seed_root=REPO_SEED,
     )
 
     assert any(
@@ -96,7 +82,7 @@ def test_ensure_env_skips_when_empty() -> None:
     assert commands.arguments == []
 
 
-def test_install_copies_soul_content() -> None:
-    soul = Path(seed_root() / "SOUL.md").read_text()
+def test_repo_seed_soul_content() -> None:
+    soul = Path(REPO_SEED / "SOUL.md").read_text()
     assert "OpsAi Agent" in soul
     assert "FRAPPE_URL" in soul

@@ -11,8 +11,8 @@ from hermes_agent_manager.opsai_seed import (
     SEED_PATH_IN_REPO,
     resolve_seed_ref,
     resolve_seed_root,
-    seed_root,
 )
+from tests.conftest import REPO_SEED
 
 
 def test_resolve_seed_ref_prefers_explicit_then_env(monkeypatch) -> None:
@@ -23,22 +23,14 @@ def test_resolve_seed_ref_prefers_explicit_then_env(monkeypatch) -> None:
     assert resolve_seed_ref(None) == "latest"
 
 
-def test_bundled_ref_skips_network(tmp_path: Path) -> None:
-    def boom(_url: str) -> bytes:
-        raise AssertionError("network should not be used")
-
-    root = resolve_seed_root("bundled", cache_dir=tmp_path, open_url=boom)
-    assert root == seed_root()
-
-
-def test_latest_falls_back_to_bundled_when_no_tags(tmp_path: Path) -> None:
+def test_latest_errors_when_no_tags(tmp_path: Path) -> None:
     def open_url(url: str) -> bytes:
         if "api.github.com" in url:
             return b"[]"
         raise AssertionError(url)
 
-    root = resolve_seed_root("latest", cache_dir=tmp_path, open_url=open_url)
-    assert root == seed_root()
+    with pytest.raises(InstallError, match="No opsai-seed-v"):
+        resolve_seed_root("latest", cache_dir=tmp_path, open_url=open_url)
 
 
 def test_latest_fetches_newest_seed_tag(tmp_path: Path) -> None:
@@ -114,22 +106,44 @@ def test_ignores_app_tags_when_picking_latest(tmp_path: Path) -> None:
     assert (root / "SOUL.md").read_text() == "# seed\n"
 
 
+def test_accepts_legacy_seed_path_in_tarball(tmp_path: Path) -> None:
+    archive = _seed_tarball(
+        tmp_path,
+        soul="# legacy\n",
+        path_in_repo="hermes_agent_manager/seed",
+    )
+
+    def open_url(url: str) -> bytes:
+        if "opsai-seed-v1.0.0" in url:
+            return archive
+        raise AssertionError(url)
+
+    root = resolve_seed_root(
+        "opsai-seed-v1.0.0",
+        cache_dir=tmp_path / "cache",
+        open_url=open_url,
+    )
+    assert (root / "SOUL.md").read_text() == "# legacy\n"
+
+
 def _copy_seed_tree(destination: Path, soul: str) -> None:
-    packaged = seed_root()
     for relative in SEED_FILES:
         path = destination / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         if relative == "SOUL.md":
             path.write_text(soul)
         else:
-            path.write_bytes((packaged / relative).read_bytes())
+            path.write_bytes((REPO_SEED / relative).read_bytes())
 
 
-def _seed_tarball(tmp_path: Path, soul: str) -> bytes:
-    tree = tmp_path / "tree" / "hermes-agent-manager-abc" / SEED_PATH_IN_REPO
+def _seed_tarball(
+    tmp_path: Path,
+    soul: str,
+    path_in_repo: str = SEED_PATH_IN_REPO,
+) -> bytes:
+    tree = tmp_path / "tree" / "hermes-agent-manager-abc" / path_in_repo
     _copy_seed_tree(tree, soul=soul)
     buffer = io.BytesIO()
-    root_name = "hermes-agent-manager-abc"
     with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
-        tar.add(tree, arcname=f"{root_name}/{SEED_PATH_IN_REPO}")
+        tar.add(tree, arcname=f"hermes-agent-manager-abc/{path_in_repo}")
     return buffer.getvalue()
